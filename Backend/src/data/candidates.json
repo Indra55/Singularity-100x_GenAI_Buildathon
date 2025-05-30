@@ -1,0 +1,62 @@
+[
+  {
+    "id": "uuid-123",
+    "name": "Jane Doe",
+    "photo": "https://example.com/photo1.jpg",
+    "title": "Senior AI Engineer",
+    "location": "Berlin, Germany",
+    "yearsOfExperience": 6,
+    "skills": ["LangChain", "RAG", "GenAI", "Python", "LLMOps"],
+    "workPreference": "Remote",
+    "education": "MSc in Computer Science, ETH Zurich",
+    "pastCompanies": ["DeepMind", "Hugging Face"],
+    "summary": "Worked on multiple LLM-based applications involving RAG and knowledge bases. Passionate about building tools with LangChain.",
+    "availableFrom": "2025-06-01",
+    "screeningQuestion": "What trade-offs do you consider when choosing between LangChain and a custom RAG pipeline?"
+  },
+  {
+    "id": "uuid-456",
+    "name": "John Smith",
+    "photo": "https://example.com/photo2.jpg",
+    "title": "ML Engineer",
+    "location": "San Francisco, USA",
+    "yearsOfExperience": 4,
+    "skills": ["PyTorch", "RAG", "Python", "MLOps", "AWS"],
+    "workPreference": "Hybrid",
+    "education": "BS in Computer Science, Stanford",
+    "pastCompanies": ["OpenAI", "Meta AI"],
+    "summary": "Specialized in building and deploying large language models. Experience with RAG systems and model optimization.",
+    "availableFrom": "2025-07-01",
+    "screeningQuestion": "How do you approach the challenge of hallucination in LLM applications?"
+  },
+  {
+    "id": "uuid-789",
+    "name": "Maria Garcia",
+    "photo": "https://example.com/photo3.jpg",
+    "title": "AI Research Engineer",
+    "location": "Toronto, Canada",
+    "yearsOfExperience": 5,
+    "skills": ["LangChain", "Transformers", "Python", "TensorFlow", "Docker"],
+    "workPreference": "Remote",
+    "education": "PhD in Machine Learning, University of Toronto",
+    "pastCompanies": ["Google Brain", "Microsoft Research"],
+    "summary": "Research focus on improving RAG systems and few-shot learning in LLMs. Published multiple papers on retrieval augmentation.",
+    "availableFrom": "2025-05-15",
+    "screeningQuestion": "What strategies do you use to improve retrieval quality in RAG systems?"
+  },
+  {
+    "id": "uuid-101",
+    "name": "Alex Wong",
+    "photo": "https://example.com/photo4.jpg",
+    "title": "Python Developer",
+    "location": "London, UK",
+    "yearsOfExperience": 3,
+    "skills": ["Python", "FastAPI", "RAG", "PostgreSQL", "Redis"],
+    "workPreference": "Remote",
+    "education": "MSc in Software Engineering, Imperial College London",
+    "pastCompanies": ["Databricks", "Palantir"],
+    "summary": "Backend specialist with focus on building scalable RAG systems. Experience with vector databases and embedding systems.",
+    "availableFrom": "2025-08-01",
+    "screeningQuestion": "How do you handle vector database scaling challenges in production RAG systems?"
+  }
+]

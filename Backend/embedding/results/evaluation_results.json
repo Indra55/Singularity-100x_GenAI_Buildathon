@@ -1,0 +1,417 @@
+{
+  "Looking for senior AI engineer with 5+ years experience in LangChain": [
+    {
+      "id": "uuid-123",
+      "name": "Jane Doe",
+      "photo": "https://example.com/photo1.jpg",
+      "title": "Senior AI Engineer",
+      "location": "Berlin, Germany",
+      "yearsOfExperience": 6,
+      "skills": [
+        "langchain",
+        "rag",
+        "genai",
+        "python",
+        "llmops"
+      ],
+      "workPreference": "Remote",
+      "education": "MSc in Computer Science, ETH Zurich",
+      "pastCompanies": [
+        "DeepMind",
+        "Hugging Face"
+      ],
+      "summary": "Worked on multiple LLM-based applications involving RAG and knowledge bases. Passionate about building tools with LangChain.",
+      "availableFrom": "2025-06-01",
+      "screeningQuestion": "What trade-offs do you consider when choosing between LangChain and a custom RAG pipeline?",
+      "similarity_score": 0.6346900463104248,
+      "rerank_score": 7.165870666503906,
+      "match_score": 10
+    },
+    {
+      "id": "uuid-789",
+      "name": "Maria Garcia",
+      "photo": "https://example.com/photo3.jpg",
+      "title": "AI Research Engineer",
+      "location": "Toronto, Canada",
+      "yearsOfExperience": 5,
+      "skills": [
+        "langchain",
+        "transformers",
+        "python",
+        "tensorflow",
+        "docker"
+      ],
+      "workPreference": "Remote",
+      "education": "PhD in Machine Learning, University of Toronto",
+      "pastCompanies": [
+        "Google Brain",
+        "Microsoft Research"
+      ],
+      "summary": "Research focus on improving RAG systems and few-shot learning in LLMs. Published multiple papers on retrieval augmentation.",
+      "availableFrom": "2025-05-15",
+      "screeningQuestion": "What strategies do you use to improve retrieval quality in RAG systems?",
+      "similarity_score": 0.483195424079895,
+      "rerank_score": 5.766149520874023,
+      "match_score": 10
+    },
+    {
+      "id": "uuid-456",
+      "name": "John Smith",
+      "photo": "https://example.com/photo2.jpg",
+      "title": "ML Engineer",
+      "location": "San Francisco, USA",
+      "yearsOfExperience": 4,
+      "skills": [
+        "pytorch",
+        "rag",
+        "python",
+        "mlops",
+        "aws"
+      ],
+      "workPreference": "Hybrid",
+      "education": "BS in Computer Science, Stanford",
+      "pastCompanies": [
+        "OpenAI",
+        "Meta AI"
+      ],
+      "summary": "Specialized in building and deploying large language models. Experience with RAG systems and model optimization.",
+      "availableFrom": "2025-07-01",
+      "screeningQuestion": "How do you approach the challenge of hallucination in LLM applications?",
+      "similarity_score": 0.5312031507492065,
+      "rerank_score": -5.278764724731445,
+      "match_score": 1
+    }
+  ],
+  "Need a remote Python expert with RAG experience": [
+    {
+      "id": "uuid-101",
+      "name": "Alex Wong",
+      "photo": "https://example.com/photo4.jpg",
+      "title": "Python Developer",
+      "location": "London, UK",
+      "yearsOfExperience": 3,
+      "skills": [
+        "python",
+        "fastapi",
+        "rag",
+        "postgresql",
+        "redis"
+      ],
+      "workPreference": "Remote",
+      "education": "MSc in Software Engineering, Imperial College London",
+      "pastCompanies": [
+        "Databricks",
+        "Palantir"
+      ],
+      "summary": "Backend specialist with focus on building scalable RAG systems. Experience with vector databases and embedding systems.",
+      "availableFrom": "2025-08-01",
+      "screeningQuestion": "How do you handle vector database scaling challenges in production RAG systems?",
+      "similarity_score": 0.5957468748092651,
+      "rerank_score": 5.292420864105225,
+      "match_score": 10
+    },
+    {
+      "id": "uuid-456",
+      "name": "John Smith",
+      "photo": "https://example.com/photo2.jpg",
+      "title": "ML Engineer",
+      "location": "San Francisco, USA",
+      "yearsOfExperience": 4,
+      "skills": [
+        "pytorch",
+        "rag",
+        "python",
+        "mlops",
+        "aws"
+      ],
+      "workPreference": "Hybrid",
+      "education": "BS in Computer Science, Stanford",
+      "pastCompanies": [
+        "OpenAI",
+        "Meta AI"
+      ],
+      "summary": "Specialized in building and deploying large language models. Experience with RAG systems and model optimization.",
+      "availableFrom": "2025-07-01",
+      "screeningQuestion": "How do you approach the challenge of hallucination in LLM applications?",
+      "similarity_score": 0.4694920778274536,
+      "rerank_score": 2.303090810775757,
+      "match_score": 10
+    },
+    {
+      "id": "uuid-123",
+      "name": "Jane Doe",
+      "photo": "https://example.com/photo1.jpg",
+      "title": "Senior AI Engineer",
+      "location": "Berlin, Germany",
+      "yearsOfExperience": 6,
+      "skills": [
+        "langchain",
+        "rag",
+        "genai",
+        "python",
+        "llmops"
+      ],
+      "workPreference": "Remote",
+      "education": "MSc in Computer Science, ETH Zurich",
+      "pastCompanies": [
+        "DeepMind",
+        "Hugging Face"
+      ],
+      "summary": "Worked on multiple LLM-based applications involving RAG and knowledge bases. Passionate about building tools with LangChain.",
+      "availableFrom": "2025-06-01",
+      "screeningQuestion": "What trade-offs do you consider when choosing between LangChain and a custom RAG pipeline?",
+      "similarity_score": 0.45646482706069946,
+      "rerank_score": 3.5216078758239746,
+      "match_score": 10
+    }
+  ],
+  "Seeking ML engineer with 3+ years at top AI companies": [
+    {
+      "id": "uuid-456",
+      "name": "John Smith",
+      "photo": "https://example.com/photo2.jpg",
+      "title": "ML Engineer",
+      "location": "San Francisco, USA",
+      "yearsOfExperience": 4,
+      "skills": [
+        "pytorch",
+        "rag",
+        "python",
+        "mlops",
+        "aws"
+      ],
+      "workPreference": "Hybrid",
+      "education": "BS in Computer Science, Stanford",
+      "pastCompanies": [
+        "OpenAI",
+        "Meta AI"
+      ],
+      "summary": "Specialized in building and deploying large language models. Experience with RAG systems and model optimization.",
+      "availableFrom": "2025-07-01",
+      "screeningQuestion": "How do you approach the challenge of hallucination in LLM applications?",
+      "similarity_score": 0.6282382607460022,
+      "rerank_score": 1.7541875839233398,
+      "match_score": 10
+    },
+    {
+      "id": "uuid-123",
+      "name": "Jane Doe",
+      "photo": "https://example.com/photo1.jpg",
+      "title": "Senior AI Engineer",
+      "location": "Berlin, Germany",
+      "yearsOfExperience": 6,
+      "skills": [
+        "langchain",
+        "rag",
+        "genai",
+        "python",
+        "llmops"
+      ],
+      "workPreference": "Remote",
+      "education": "MSc in Computer Science, ETH Zurich",
+      "pastCompanies": [
+        "DeepMind",
+        "Hugging Face"
+      ],
+      "summary": "Worked on multiple LLM-based applications involving RAG and knowledge bases. Passionate about building tools with LangChain.",
+      "availableFrom": "2025-06-01",
+      "screeningQuestion": "What trade-offs do you consider when choosing between LangChain and a custom RAG pipeline?",
+      "similarity_score": 0.49927979707717896,
+      "rerank_score": -3.1338109970092773,
+      "match_score": 1
+    },
+    {
+      "id": "uuid-789",
+      "name": "Maria Garcia",
+      "photo": "https://example.com/photo3.jpg",
+      "title": "AI Research Engineer",
+      "location": "Toronto, Canada",
+      "yearsOfExperience": 5,
+      "skills": [
+        "langchain",
+        "transformers",
+        "python",
+        "tensorflow",
+        "docker"
+      ],
+      "workPreference": "Remote",
+      "education": "PhD in Machine Learning, University of Toronto",
+      "pastCompanies": [
+        "Google Brain",
+        "Microsoft Research"
+      ],
+      "summary": "Research focus on improving RAG systems and few-shot learning in LLMs. Published multiple papers on retrieval augmentation.",
+      "availableFrom": "2025-05-15",
+      "screeningQuestion": "What strategies do you use to improve retrieval quality in RAG systems?",
+      "similarity_score": 0.43931710720062256,
+      "rerank_score": -3.6081223487854004,
+      "match_score": 1
+    }
+  ],
+  "Junior React developer for frontend position": [
+    {
+      "id": "uuid-123",
+      "name": "Jane Doe",
+      "photo": "https://example.com/photo1.jpg",
+      "title": "Senior AI Engineer",
+      "location": "Berlin, Germany",
+      "yearsOfExperience": 6,
+      "skills": [
+        "langchain",
+        "rag",
+        "genai",
+        "python",
+        "llmops"
+      ],
+      "workPreference": "Remote",
+      "education": "MSc in Computer Science, ETH Zurich",
+      "pastCompanies": [
+        "DeepMind",
+        "Hugging Face"
+      ],
+      "summary": "Worked on multiple LLM-based applications involving RAG and knowledge bases. Passionate about building tools with LangChain.",
+      "availableFrom": "2025-06-01",
+      "screeningQuestion": "What trade-offs do you consider when choosing between LangChain and a custom RAG pipeline?",
+      "similarity_score": 0.25538694858551025,
+      "rerank_score": -11.159809112548828,
+      "match_score": 1
+    },
+    {
+      "id": "uuid-101",
+      "name": "Alex Wong",
+      "photo": "https://example.com/photo4.jpg",
+      "title": "Python Developer",
+      "location": "London, UK",
+      "yearsOfExperience": 3,
+      "skills": [
+        "python",
+        "fastapi",
+        "rag",
+        "postgresql",
+        "redis"
+      ],
+      "workPreference": "Remote",
+      "education": "MSc in Software Engineering, Imperial College London",
+      "pastCompanies": [
+        "Databricks",
+        "Palantir"
+      ],
+      "summary": "Backend specialist with focus on building scalable RAG systems. Experience with vector databases and embedding systems.",
+      "availableFrom": "2025-08-01",
+      "screeningQuestion": "How do you handle vector database scaling challenges in production RAG systems?",
+      "similarity_score": 0.21785621345043182,
+      "rerank_score": -8.987183570861816,
+      "match_score": 1
+    },
+    {
+      "id": "uuid-456",
+      "name": "John Smith",
+      "photo": "https://example.com/photo2.jpg",
+      "title": "ML Engineer",
+      "location": "San Francisco, USA",
+      "yearsOfExperience": 4,
+      "skills": [
+        "pytorch",
+        "rag",
+        "python",
+        "mlops",
+        "aws"
+      ],
+      "workPreference": "Hybrid",
+      "education": "BS in Computer Science, Stanford",
+      "pastCompanies": [
+        "OpenAI",
+        "Meta AI"
+      ],
+      "summary": "Specialized in building and deploying large language models. Experience with RAG systems and model optimization.",
+      "availableFrom": "2025-07-01",
+      "screeningQuestion": "How do you approach the challenge of hallucination in LLM applications?",
+      "similarity_score": 0.16124670207500458,
+      "rerank_score": -11.330266952514648,
+      "match_score": 1
+    }
+  ],
+  "Lead data scientist with AWS experience": [
+    {
+      "id": "uuid-456",
+      "name": "John Smith",
+      "photo": "https://example.com/photo2.jpg",
+      "title": "ML Engineer",
+      "location": "San Francisco, USA",
+      "yearsOfExperience": 4,
+      "skills": [
+        "pytorch",
+        "rag",
+        "python",
+        "mlops",
+        "aws"
+      ],
+      "workPreference": "Hybrid",
+      "education": "BS in Computer Science, Stanford",
+      "pastCompanies": [
+        "OpenAI",
+        "Meta AI"
+      ],
+      "summary": "Specialized in building and deploying large language models. Experience with RAG systems and model optimization.",
+      "availableFrom": "2025-07-01",
+      "screeningQuestion": "How do you approach the challenge of hallucination in LLM applications?",
+      "similarity_score": 0.37764716148376465,
+      "rerank_score": 1.5218068361282349,
+      "match_score": 10
+    },
+    {
+      "id": "uuid-101",
+      "name": "Alex Wong",
+      "photo": "https://example.com/photo4.jpg",
+      "title": "Python Developer",
+      "location": "London, UK",
+      "yearsOfExperience": 3,
+      "skills": [
+        "python",
+        "fastapi",
+        "rag",
+        "postgresql",
+        "redis"
+      ],
+      "workPreference": "Remote",
+      "education": "MSc in Software Engineering, Imperial College London",
+      "pastCompanies": [
+        "Databricks",
+        "Palantir"
+      ],
+      "summary": "Backend specialist with focus on building scalable RAG systems. Experience with vector databases and embedding systems.",
+      "availableFrom": "2025-08-01",
+      "screeningQuestion": "How do you handle vector database scaling challenges in production RAG systems?",
+      "similarity_score": 0.34903770685195923,
+      "rerank_score": -5.701988220214844,
+      "match_score": 1
+    },
+    {
+      "id": "uuid-123",
+      "name": "Jane Doe",
+      "photo": "https://example.com/photo1.jpg",
+      "title": "Senior AI Engineer",
+      "location": "Berlin, Germany",
+      "yearsOfExperience": 6,
+      "skills": [
+        "langchain",
+        "rag",
+        "genai",
+        "python",
+        "llmops"
+      ],
+      "workPreference": "Remote",
+      "education": "MSc in Computer Science, ETH Zurich",
+      "pastCompanies": [
+        "DeepMind",
+        "Hugging Face"
+      ],
+      "summary": "Worked on multiple LLM-based applications involving RAG and knowledge bases. Passionate about building tools with LangChain.",
+      "availableFrom": "2025-06-01",
+      "screeningQuestion": "What trade-offs do you consider when choosing between LangChain and a custom RAG pipeline?",
+      "similarity_score": 0.2364090085029602,
+      "rerank_score": -8.522071838378906,
+      "match_score": 1
+    }
+  ]
+}
