@@ -1,0 +1,512 @@
+{
+  "single_query_result": {
+    "status": "success",
+    "query": "Looking for senior AI engineer with 5+ years experience in LangChain",
+    "total_results": 3,
+    "candidates": [
+      {
+        "id": "uuid-001",
+        "name": "Jane Doe",
+        "title": "Senior AI Engineer",
+        "location": "Berlin, Germany",
+        "years_of_experience": 6,
+        "skills": [
+          "langchain",
+          "rag",
+          "genai",
+          "python",
+          "llmops"
+        ],
+        "work_preference": "Remote",
+        "education": "MSc in Computer Science, ETH Zurich",
+        "past_companies": [
+          "DeepMind",
+          "Hugging Face"
+        ],
+        "summary": "Worked on multiple LLM-based applications involving RAG and knowledge bases. Passionate about building tools with LangChain.",
+        "match_score": 10,
+        "similarity_score": 0.635,
+        "rerank_score": 7.166,
+        "score_breakdown": {
+          "base_score": 3.103,
+          "experience_bonus": 0.15,
+          "skill_bonus": 0.1,
+          "work_pref_bonus": 0,
+          "seniority_bonus": 0.1,
+          "total_bonus": 0.35
+        },
+        "match_explanation": {
+          "candidate_name": "Jane Doe",
+          "checks": [
+            {
+              "type": "experience",
+              "required": "5+ years",
+              "candidate_has": "6 years",
+              "status": "pass"
+            },
+            {
+              "type": "skills",
+              "matched": [
+                "langchain"
+              ],
+              "missing": [
+                "ai"
+              ],
+              "status": "pass"
+            }
+          ]
+        }
+      },
+      {
+        "id": "uuid-042",
+        "name": "Leila Mahmoud",
+        "title": "Legal Tech AI Developer",
+        "location": "Beirut, Lebanon",
+        "years_of_experience": 5,
+        "skills": [
+          "legal nlp",
+          "document analysis",
+          "python",
+          "transformers",
+          "information extraction"
+        ],
+        "work_preference": "Remote",
+        "education": "JD + MSc in Computer Science, American University of Beirut",
+        "past_companies": [
+          "LexisNexis",
+          "Thomson Reuters",
+          "Baker McKenzie"
+        ],
+        "summary": "Built AI systems for legal document analysis and contract review. Expert in multilingual legal text processing.",
+        "match_score": 2,
+        "similarity_score": 0.504,
+        "rerank_score": -1.272,
+        "score_breakdown": {
+          "base_score": 0.13,
+          "experience_bonus": 0.1,
+          "skill_bonus": 0.0,
+          "work_pref_bonus": 0,
+          "seniority_bonus": 0,
+          "total_bonus": 0.1
+        },
+        "match_explanation": {
+          "candidate_name": "Leila Mahmoud",
+          "checks": [
+            {
+              "type": "experience",
+              "required": "5+ years",
+              "candidate_has": "5 years",
+              "status": "pass"
+            },
+            {
+              "type": "skills",
+              "matched": [],
+              "missing": [
+                "langchain",
+                "ai"
+              ],
+              "status": "fail"
+            }
+          ]
+        }
+      },
+      {
+        "id": "uuid-067",
+        "name": "Priyanka Singh",
+        "title": "Voice AI Engineer",
+        "location": "Delhi, India",
+        "years_of_experience": 4,
+        "skills": [
+          "voice recognition",
+          "tts",
+          "speech synthesis",
+          "python",
+          "deep learning",
+          "linguistics"
+        ],
+        "work_preference": "Remote",
+        "education": "MTech in Speech Technology, IIT Delhi",
+        "past_companies": [
+          "Amazon Alexa",
+          "Google Assistant",
+          "Microsoft Cortana"
+        ],
+        "summary": "Specialized in multilingual voice AI and speech recognition. Built voice interfaces for Indian languages and dialects.",
+        "match_score": 1,
+        "similarity_score": 0.57,
+        "rerank_score": -3.779,
+        "score_breakdown": {
+          "base_score": -0.737,
+          "experience_bonus": 0,
+          "skill_bonus": 0.0,
+          "work_pref_bonus": 0,
+          "seniority_bonus": 0,
+          "total_bonus": 0.0
+        },
+        "match_explanation": {
+          "candidate_name": "Priyanka Singh",
+          "checks": [
+            {
+              "type": "experience",
+              "required": "5+ years",
+              "candidate_has": "4 years",
+              "status": "fail"
+            },
+            {
+              "type": "skills",
+              "matched": [],
+              "missing": [
+                "langchain",
+                "ai"
+              ],
+              "status": "fail"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "batch_query_result": {
+    "status": "success",
+    "batch_results": {
+      "Looking for senior AI engineer with 5+ years experience in LangChain": {
+        "status": "success",
+        "query": "Looking for senior AI engineer with 5+ years experience in LangChain",
+        "total_results": 2,
+        "candidates": [
+          {
+            "id": "uuid-001",
+            "name": "Jane Doe",
+            "title": "Senior AI Engineer",
+            "location": "Berlin, Germany",
+            "years_of_experience": 6,
+            "skills": [
+              "langchain",
+              "rag",
+              "genai",
+              "python",
+              "llmops"
+            ],
+            "work_preference": "Remote",
+            "education": "MSc in Computer Science, ETH Zurich",
+            "past_companies": [
+              "DeepMind",
+              "Hugging Face"
+            ],
+            "summary": "Worked on multiple LLM-based applications involving RAG and knowledge bases. Passionate about building tools with LangChain.",
+            "match_score": 10,
+            "similarity_score": 0.635,
+            "rerank_score": 7.166,
+            "score_breakdown": {
+              "base_score": 3.103,
+              "experience_bonus": 0.15,
+              "skill_bonus": 0.1,
+              "work_pref_bonus": 0,
+              "seniority_bonus": 0.1,
+              "total_bonus": 0.35
+            },
+            "match_explanation": {
+              "candidate_name": "Jane Doe",
+              "checks": [
+                {
+                  "type": "experience",
+                  "required": "5+ years",
+                  "candidate_has": "6 years",
+                  "status": "pass"
+                },
+                {
+                  "type": "skills",
+                  "matched": [
+                    "langchain"
+                  ],
+                  "missing": [
+                    "ai"
+                  ],
+                  "status": "pass"
+                }
+              ]
+            }
+          },
+          {
+            "id": "uuid-042",
+            "name": "Leila Mahmoud",
+            "title": "Legal Tech AI Developer",
+            "location": "Beirut, Lebanon",
+            "years_of_experience": 5,
+            "skills": [
+              "legal nlp",
+              "document analysis",
+              "python",
+              "transformers",
+              "information extraction"
+            ],
+            "work_preference": "Remote",
+            "education": "JD + MSc in Computer Science, American University of Beirut",
+            "past_companies": [
+              "LexisNexis",
+              "Thomson Reuters",
+              "Baker McKenzie"
+            ],
+            "summary": "Built AI systems for legal document analysis and contract review. Expert in multilingual legal text processing.",
+            "match_score": 2,
+            "similarity_score": 0.504,
+            "rerank_score": -1.272,
+            "score_breakdown": {
+              "base_score": 0.13,
+              "experience_bonus": 0.1,
+              "skill_bonus": 0.0,
+              "work_pref_bonus": 0,
+              "seniority_bonus": 0,
+              "total_bonus": 0.1
+            },
+            "match_explanation": {
+              "candidate_name": "Leila Mahmoud",
+              "checks": [
+                {
+                  "type": "experience",
+                  "required": "5+ years",
+                  "candidate_has": "5 years",
+                  "status": "pass"
+                },
+                {
+                  "type": "skills",
+                  "matched": [],
+                  "missing": [
+                    "langchain",
+                    "ai"
+                  ],
+                  "status": "fail"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "Need a remote Python expert with RAG experience": {
+        "status": "success",
+        "query": "Need a remote Python expert with RAG experience",
+        "total_results": 2,
+        "candidates": [
+          {
+            "id": "uuid-001",
+            "name": "Jane Doe",
+            "title": "Senior AI Engineer",
+            "location": "Berlin, Germany",
+            "years_of_experience": 6,
+            "skills": [
+              "langchain",
+              "rag",
+              "genai",
+              "python",
+              "llmops"
+            ],
+            "work_preference": "Remote",
+            "education": "MSc in Computer Science, ETH Zurich",
+            "past_companies": [
+              "DeepMind",
+              "Hugging Face"
+            ],
+            "summary": "Worked on multiple LLM-based applications involving RAG and knowledge bases. Passionate about building tools with LangChain.",
+            "match_score": 10,
+            "similarity_score": 0.456,
+            "rerank_score": 3.522,
+            "score_breakdown": {
+              "base_score": 1.801,
+              "experience_bonus": 0,
+              "skill_bonus": 0.1,
+              "work_pref_bonus": 0.15,
+              "seniority_bonus": 0,
+              "total_bonus": 0.25
+            },
+            "match_explanation": {
+              "candidate_name": "Jane Doe",
+              "checks": [
+                {
+                  "type": "skills",
+                  "matched": [
+                    "python"
+                  ],
+                  "missing": [],
+                  "status": "pass"
+                },
+                {
+                  "type": "work_preference",
+                  "required": "remote",
+                  "candidate_has": "remote",
+                  "status": "pass"
+                }
+              ]
+            }
+          },
+          {
+            "id": "uuid-114",
+            "name": "Gabriela Santos",
+            "title": "Automation Test Engineer",
+            "location": "S\u00e3o Paulo, Brazil",
+            "years_of_experience": 7,
+            "skills": [
+              "test automation",
+              "robot framework",
+              "python",
+              "continuous testing",
+              "performance testing",
+              "mobile testing"
+            ],
+            "work_preference": "Remote",
+            "education": "BSc in Software Engineering, USP",
+            "past_companies": [
+              "Ita\u00fa",
+              "B3",
+              "Magazine Luiza"
+            ],
+            "summary": "Automated testing for financial services reducing manual testing by 85%. Expert in end-to-end test automation frameworks.",
+            "match_score": 1,
+            "similarity_score": 0.476,
+            "rerank_score": -4.069,
+            "score_breakdown": {
+              "base_score": -0.853,
+              "experience_bonus": 0,
+              "skill_bonus": 0.1,
+              "work_pref_bonus": 0.15,
+              "seniority_bonus": 0,
+              "total_bonus": 0.25
+            },
+            "match_explanation": {
+              "candidate_name": "Gabriela Santos",
+              "checks": [
+                {
+                  "type": "skills",
+                  "matched": [
+                    "python"
+                  ],
+                  "missing": [],
+                  "status": "pass"
+                },
+                {
+                  "type": "work_preference",
+                  "required": "remote",
+                  "candidate_has": "remote",
+                  "status": "pass"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "Seeking ML engineer with 3+ years at top AI companies": {
+        "status": "success",
+        "query": "Seeking ML engineer with 3+ years at top AI companies",
+        "total_results": 2,
+        "candidates": [
+          {
+            "id": "uuid-005",
+            "name": "Sofia Rodriguez",
+            "title": "AI Infrastructure Engineer",
+            "location": "Madrid, Spain",
+            "years_of_experience": 4,
+            "skills": [
+              "kubernetes",
+              "docker",
+              "mlops",
+              "aws",
+              "terraform",
+              "python"
+            ],
+            "work_preference": "Remote",
+            "education": "MSc in Computer Engineering, Technical University of Madrid",
+            "past_companies": [
+              "Spotify",
+              "Cabify",
+              "ING Bank"
+            ],
+            "summary": "Specialized in scaling ML infrastructure and deployment pipelines. Built systems handling 1M+ daily ML predictions.",
+            "match_score": 10,
+            "similarity_score": 0.578,
+            "rerank_score": 1.647,
+            "score_breakdown": {
+              "base_score": 1.163,
+              "experience_bonus": 0.15,
+              "skill_bonus": 0.0,
+              "work_pref_bonus": 0,
+              "seniority_bonus": 0,
+              "total_bonus": 0.15
+            },
+            "match_explanation": {
+              "candidate_name": "Sofia Rodriguez",
+              "checks": [
+                {
+                  "type": "experience",
+                  "required": "3+ years",
+                  "candidate_has": "4 years",
+                  "status": "pass"
+                },
+                {
+                  "type": "skills",
+                  "matched": [],
+                  "missing": [
+                    "ai"
+                  ],
+                  "status": "fail"
+                }
+              ]
+            }
+          },
+          {
+            "id": "uuid-064",
+            "name": "Elena Rodriguez",
+            "title": "AI/ML Research Scientist",
+            "location": "Barcelona, Spain",
+            "years_of_experience": 7,
+            "skills": [
+              "deep learning",
+              "computer vision",
+              "pytorch",
+              "research",
+              "mlops",
+              "transformers"
+            ],
+            "work_preference": "Remote",
+            "education": "PhD in Artificial Intelligence, Universitat Polit\u00e8cnica de Catalunya",
+            "past_companies": [
+              "DeepMind",
+              "FAIR",
+              "Hugging Face"
+            ],
+            "summary": "Published 15+ papers in top-tier ML conferences. Specialized in vision transformers and multimodal AI systems.",
+            "match_score": 10,
+            "similarity_score": 0.573,
+            "rerank_score": 1.288,
+            "score_breakdown": {
+              "base_score": 1.037,
+              "experience_bonus": 0.2,
+              "skill_bonus": 0.0,
+              "work_pref_bonus": 0,
+              "seniority_bonus": 0,
+              "total_bonus": 0.2
+            },
+            "match_explanation": {
+              "candidate_name": "Elena Rodriguez",
+              "checks": [
+                {
+                  "type": "experience",
+                  "required": "3+ years",
+                  "candidate_has": "7 years",
+                  "status": "pass"
+                },
+                {
+                  "type": "skills",
+                  "matched": [],
+                  "missing": [
+                    "ai"
+                  ],
+                  "status": "fail"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "total_queries": 3
+  }
+}

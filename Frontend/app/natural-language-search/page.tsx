@@ -331,120 +331,7 @@ export default function NaturalLanguageSearchPage() {
     },
   ]
 
-  const mockSearchResults: SearchResult[] = [
-    {
-      id: "1",
-      name: "Sarah Chen",
-      title: "Senior AI Engineer",
-      company: "TechCorp",
-      location: "San Francisco, CA",
-      experience: 6,
-      skills: ["LangChain", "RAG", "Python", "TensorFlow", "OpenAI API", "Vector Databases"],
-      score: 95,
-      avatar: "/placeholder.svg?height=400&width=400",
-      summary:
-        "Experienced AI engineer specializing in RAG systems and LangChain applications. Built production-scale AI systems for fintech and healthcare with 99.9% uptime.",
-      salary: "$140,000 - $180,000",
-      availability: "Open to new opportunities",
-      lastActive: "2 hours ago",
-      matchReasons: [
-        "Expert in LangChain and RAG systems",
-        "6+ years of AI/ML experience",
-        "Strong Python and TensorFlow background",
-        "Production experience with vector databases",
-      ],
-      githubStars: 1200,
-      publications: 3,
-      languages: ["English", "Mandarin", "Spanish"],
-      education: "MS Computer Science, Stanford University",
-      certifications: ["AWS Machine Learning Specialty", "Google Cloud Professional ML Engineer"],
-      projects: [
-        "RAG-powered customer support system handling 10K queries/day",
-        "Multi-modal AI assistant with voice and image capabilities",
-        "Vector search optimization reducing latency by 60%",
-      ],
-      socialLinks: {
-        github: "https://github.com/sarahchen",
-        linkedin: "https://linkedin.com/in/sarahchen",
-        twitter: "https://twitter.com/sarahchen",
-        portfolio: "https://sarahchen.dev",
-      },
-    },
-    {
-      id: "2",
-      name: "Marcus Rodriguez",
-      title: "GenAI Research Scientist",
-      company: "AI Research Lab",
-      location: "New York, NY",
-      experience: 8,
-      skills: ["Transformers", "LangChain", "PyTorch", "Hugging Face", "RLHF", "Fine-tuning"],
-      score: 92,
-      avatar: "/placeholder.svg?height=400&width=400",
-      summary:
-        "Research scientist with deep expertise in transformer architectures and retrieval-augmented generation. Published 15+ papers in top AI conferences.",
-      salary: "$160,000 - $220,000",
-      availability: "Available for consulting",
-      lastActive: "1 day ago",
-      matchReasons: [
-        "PhD in AI with 15+ publications",
-        "Expert in transformer architectures",
-        "Strong LangChain and RAG experience",
-        "Research background in RLHF and fine-tuning",
-      ],
-      githubStars: 5000,
-      publications: 15,
-      languages: ["English", "Spanish", "Portuguese"],
-      education: "PhD Artificial Intelligence, MIT",
-      certifications: ["NVIDIA Deep Learning Institute", "Meta AI Research Certification"],
-      projects: [
-        "Novel RAG architecture for code generation (SOTA results)",
-        "Multi-agent LangChain system for enterprise workflows",
-        "Open-source transformer fine-tuning framework",
-      ],
-      socialLinks: {
-        github: "https://github.com/marcusr",
-        linkedin: "https://linkedin.com/in/marcusrodriguez",
-        twitter: "https://twitter.com/marcusr",
-      },
-    },
-    {
-      id: "3",
-      name: "Elena Kowalski",
-      title: "AI Product Engineer",
-      company: "StartupAI",
-      location: "Austin, TX",
-      experience: 5,
-      skills: ["LangChain", "FastAPI", "React", "Vector Databases", "AWS", "Product Development"],
-      score: 88,
-      avatar: "/placeholder.svg?height=400&width=400",
-      summary:
-        "Full-stack AI engineer building user-facing AI products. Expert in integrating LLMs into production applications with focus on scalability and UX.",
-      salary: "$120,000 - $160,000",
-      availability: "Open to full-time and contract",
-      lastActive: "3 hours ago",
-      matchReasons: [
-        "Strong product engineering background",
-        "Experience with LangChain in production",
-        "Full-stack development skills",
-        "Proven track record with AI products",
-      ],
-      githubStars: 800,
-      publications: 1,
-      languages: ["English", "Polish", "German"],
-      education: "BS Software Engineering, University of Texas",
-      certifications: ["AWS Solutions Architect", "MongoDB Certified Developer"],
-      projects: [
-        "AI-powered content management system for media companies",
-        "Real-time RAG chat application with 99.9% uptime",
-        "LangChain workflow automation platform",
-      ],
-      socialLinks: {
-        github: "https://github.com/elenakowalski",
-        linkedin: "https://linkedin.com/in/elenakowalski",
-        portfolio: "https://elenakowalski.dev",
-      },
-    },
-  ]
+
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return
@@ -457,11 +344,63 @@ export default function NaturalLanguageSearchPage() {
       setSearchHistory((prev) => [searchQuery, ...prev.slice(0, 9)])
     }
 
-    // Simulate API call
-    setTimeout(() => {
-      setSearchResults(mockSearchResults)
+    try {
+      // Connect to the Flask endpoint
+      const response = await fetch('http://localhost:5001/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: searchQuery,
+          top_k: 10
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`)
+      }
+
+      const data = await response.json()
+      
+      // Map the API response to the SearchResult interface
+      const formattedResults: SearchResult[] = data.candidates.map((candidate: any) => ({
+        id: candidate.id || String(Math.random()),
+        name: candidate.name || 'Unknown',
+        title: candidate.title || 'No Title',
+        company: candidate.past_companies?.[0] || '',
+        location: candidate.location || 'Not specified',
+        experience: candidate.years_of_experience || 0,
+        skills: candidate.skills || [],
+        score: Math.round(candidate.match_score * 100) || 0,
+        avatar: '/placeholder.svg?height=400&width=400',
+        summary: candidate.summary || '',
+        salary: 'Not specified',
+        availability: candidate.work_preference || 'Not specified',
+        lastActive: 'Recently',
+        matchReasons: [
+          candidate.skills?.length > 0 ? `Skills: ${candidate.skills.slice(0, 3).join(', ')}` : '',
+          candidate.years_of_experience ? `${candidate.years_of_experience}+ years of experience` : '',
+          candidate.location ? `Location: ${candidate.location}` : '',
+          candidate.education ? `Education: ${candidate.education}` : ''
+        ].filter(Boolean),
+        githubStars: 0,
+        publications: 0,
+        languages: ['English'],
+        education: candidate.education || 'Not specified',
+        certifications: [],
+        projects: [],
+        socialLinks: {}
+      }))
+
+      setSearchResults(formattedResults)
+    } catch (error) {
+      console.error('Error fetching candidates:', error)
+      // Set empty results on error
+      setSearchResults([])
+    } finally {
       setIsSearching(false)
-    }, 2000)
+    }
   }
 
   const startVoiceRecognition = () => {

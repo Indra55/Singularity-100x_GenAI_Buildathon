@@ -2,23 +2,25 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 
+const API_URL = 'http://localhost:5000/api';
+
 interface User {
-  email: string
-  name?: string
+  email: string;
+  name?: string;
 }
 
 interface AuthContextType {
-  user: User | null
-  isAuthenticated: boolean
-  isGuestMode: boolean
-  login: (email: string, password: string) => void
-  signup: (email: string, password: string, name?: string) => void
-  logout: () => void
-  continueAsGuest: () => void
-  messageCount: number
-  incrementMessageCount: () => void
-  resetMessageCount: () => void
-  hasReachedMessageLimit: boolean
+  user: User | null;
+  isAuthenticated: boolean;
+  isGuestMode: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string, name?: string) => Promise<void>;
+  logout: () => void;
+  continueAsGuest: () => void;
+  messageCount: number;
+  incrementMessageCount: () => void;
+  resetMessageCount: () => void;
+  hasReachedMessageLimit: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -32,51 +34,84 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Check for existing session on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem("hireai_user")
-    if (storedUser) {
-      setUser(JSON.parse(storedUser))
-      setIsAuthenticated(true)
+    const token = localStorage.getItem('hireai_token');
+    const storedUser = localStorage.getItem('hireai_user');
+    if (token && storedUser) {
+      setUser(JSON.parse(storedUser));
+      setIsAuthenticated(true);
     }
 
-    const storedMessageCount = localStorage.getItem("hireai_message_count")
+    const storedMessageCount = localStorage.getItem('hireai_message_count');
     if (storedMessageCount) {
-      setMessageCount(Number.parseInt(storedMessageCount, 10))
+      setMessageCount(Number.parseInt(storedMessageCount, 10));
     }
 
-    const guestMode = localStorage.getItem("hireai_guest_mode")
-    if (guestMode === "true") {
-      setIsGuestMode(true)
+    const guestMode = localStorage.getItem('hireai_guest_mode');
+    if (guestMode === 'true') {
+      setIsGuestMode(true);
     }
   }, [])
 
   // Save message count to localStorage when it changes
   useEffect(() => {
-    localStorage.setItem("hireai_message_count", messageCount.toString())
+    localStorage.setItem('hireai_message_count', messageCount.toString());
   }, [messageCount])
 
-  const login = (email: string, password: string) => {
-    // In a real app, you would validate credentials against a backend
-    // For now, accept any non-empty credentials
-    if (email && password) {
-      const user = { email }
-      setUser(user)
-      setIsAuthenticated(true)
-      setIsGuestMode(false)
-      localStorage.setItem("hireai_user", JSON.stringify(user))
-      localStorage.removeItem("hireai_guest_mode")
+  const login = async (email: string, password: string) => {
+    try {      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });        const data = await response.json();
+      if (!response.ok) {
+        const error = new Error(data.message || 'Login failed');
+        error.name = 'AuthError';
+        return Promise.reject(error);
+      }
+      const user = { email: data.user.email, name: data.user.name };
+      
+      setUser(user);
+      setIsAuthenticated(true);
+      setIsGuestMode(false);
+      
+      localStorage.setItem('hireai_token', data.token);
+      localStorage.setItem('hireai_user', JSON.stringify(user));
+      localStorage.removeItem('hireai_guest_mode');
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
     }
   }
 
-  const signup = (email: string, password: string, name?: string) => {
-    // In a real app, you would create a new user in the backend
-    // For now, just simulate a successful signup
-    if (email && password) {
-      const user = { email, name }
-      setUser(user)
-      setIsAuthenticated(true)
-      setIsGuestMode(false)
-      localStorage.setItem("hireai_user", JSON.stringify(user))
-      localStorage.removeItem("hireai_guest_mode")
+  const signup = async (email: string, password: string, name?: string) => {
+    try {
+      const response = await fetch(`${API_URL}/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password, name }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Signup failed');
+      }
+
+      const data = await response.json();
+      const user = { email: data.user.email, name: data.user.name };
+      
+      setUser(user);
+      setIsAuthenticated(true);
+      setIsGuestMode(false);
+      
+      localStorage.setItem('hireai_token', data.token);
+      localStorage.setItem('hireai_user', JSON.stringify(user));
+      localStorage.removeItem('hireai_guest_mode');
+    } catch (error) {
+      console.error('Signup error:', error);
+      throw error;
     }
   }
 
@@ -84,13 +119,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
     setIsAuthenticated(false)
     setIsGuestMode(false)
-    localStorage.removeItem("hireai_user")
-    localStorage.removeItem("hireai_guest_mode")
+    localStorage.removeItem('hireai_token')
+    localStorage.removeItem('hireai_user')
+    localStorage.removeItem('hireai_guest_mode')
   }
 
   const continueAsGuest = () => {
     setIsGuestMode(true)
-    localStorage.setItem("hireai_guest_mode", "true")
+    localStorage.setItem('hireai_guest_mode', 'true')
   }
 
   const incrementMessageCount = () => {
@@ -101,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetMessageCount = () => {
     setMessageCount(0)
-    localStorage.removeItem("hireai_message_count")
+    localStorage.removeItem('hireai_message_count')
   }
 
   const hasReachedMessageLimit = !isAuthenticated && messageCount >= MESSAGE_LIMIT

@@ -69,94 +69,7 @@ interface Candidate {
   }
 }
 
-const mockCandidates: Candidate[] = [
-  {
-    id: "1",
-    name: "Sarah Chen",
-    title: "Senior AI Engineer",
-    company: "TechCorp",
-    location: "San Francisco, CA",
-    experience: 6,
-    skills: ["LangChain", "RAG", "Python", "TensorFlow", "OpenAI API", "Vector Databases"],
-    score: 95,
-    avatar: "/placeholder.svg?height=400&width=400",
-    summary:
-      "Experienced AI engineer specializing in RAG systems and LangChain applications. Built production-scale AI systems for fintech and healthcare with 99.9% uptime.",
-    salary: "$140,000 - $180,000",
-    availability: "Open to new opportunities",
-    lastActive: "2 hours ago",
-    matchReasons: [
-      "Expert in LangChain and RAG systems",
-      "6+ years of AI/ML experience",
-      "Strong Python and TensorFlow background",
-      "Production experience with vector databases",
-    ],
-    githubStars: 1200,
-    publications: 3,
-    socialLinks: {
-      github: "https://github.com/sarahchen",
-      linkedin: "https://linkedin.com/in/sarahchen",
-      portfolio: "https://sarahchen.dev",
-    },
-  },
-  {
-    id: "2",
-    name: "Marcus Rodriguez",
-    title: "GenAI Research Scientist",
-    company: "AI Research Lab",
-    location: "New York, NY",
-    experience: 8,
-    skills: ["Transformers", "LangChain", "PyTorch", "Hugging Face", "RLHF", "Fine-tuning"],
-    score: 92,
-    avatar: "/placeholder.svg?height=400&width=400",
-    summary:
-      "Research scientist with deep expertise in transformer architectures and retrieval-augmented generation. Published 15+ papers in top AI conferences.",
-    salary: "$160,000 - $220,000",
-    availability: "Available for consulting",
-    lastActive: "1 day ago",
-    matchReasons: [
-      "PhD in AI with 15+ publications",
-      "Expert in transformer architectures",
-      "Strong LangChain and RAG experience",
-      "Research background in RLHF and fine-tuning",
-    ],
-    githubStars: 5000,
-    publications: 15,
-    socialLinks: {
-      github: "https://github.com/marcusr",
-      linkedin: "https://linkedin.com/in/marcusrodriguez",
-    },
-  },
-  {
-    id: "3",
-    name: "Elena Kowalski",
-    title: "AI Product Engineer",
-    company: "StartupAI",
-    location: "Austin, TX",
-    experience: 5,
-    skills: ["LangChain", "FastAPI", "React", "Vector Databases", "AWS", "Product Development"],
-    score: 88,
-    avatar: "/placeholder.svg?height=400&width=400",
-    summary:
-      "Full-stack AI engineer building user-facing AI products. Expert in integrating LLMs into production applications with focus on scalability and UX.",
-    salary: "$120,000 - $160,000",
-    availability: "Open to full-time and contract",
-    lastActive: "3 hours ago",
-    matchReasons: [
-      "Strong product engineering background",
-      "Experience with LangChain in production",
-      "Full-stack development skills",
-      "Proven track record with AI products",
-    ],
-    githubStars: 800,
-    publications: 1,
-    socialLinks: {
-      github: "https://github.com/elenakowalski",
-      linkedin: "https://linkedin.com/in/elenakowalski",
-      portfolio: "https://elenakowalski.dev",
-    },
-  },
-]
+// No mock candidates - we'll fetch from the API
 
 export function PeopleGPTInterface() {
   const [messages, setMessages] = useState<Message[]>([
@@ -211,21 +124,50 @@ export function PeopleGPTInterface() {
       setHasReachedMessageLimit(true)
     }
 
-    // Simulate AI processing
-    setTimeout(() => {
+    try {
+      // Fetch candidates from the Flask API
+      const response = await fetch('http://localhost:5001/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: currentMessage,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch candidates')
+      }
+
+      const data = await response.json()
+      const candidates: Candidate[] = data.candidates || []
+
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: "assistant",
-        content: `I found ${mockCandidates.length} excellent candidates matching your criteria for "${currentMessage}". These professionals have strong backgrounds in the areas you mentioned. Would you like to view them as cards for quick swiping or as a detailed list?`,
+        content: candidates.length > 0
+          ? `I found ${candidates.length} excellent candidates matching your criteria for "${currentMessage}". These professionals have strong backgrounds in the areas you mentioned. Would you like to view them as cards for quick swiping or as a detailed list?`
+          : `I couldn't find any candidates matching your criteria for "${currentMessage}". Please try a different search query.`,
         timestamp: new Date(),
-        candidates: mockCandidates,
-        showViewOptions: true,
+        candidates: candidates,
+        showViewOptions: candidates.length > 0,
       }
 
       setMessages((prev) => [...prev, assistantMessage])
-      setSearchResults(mockCandidates)
+      setSearchResults(candidates)
+    } catch (error) {
+      console.error('Error fetching candidates:', error)
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: "assistant",
+        content: "I'm sorry, but I encountered an error while searching for candidates. Please try again later.",
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, errorMessage])
+    } finally {
       setIsTyping(false)
-    }, 2000)
+    }
   }
 
   const handleViewModeSelect = (mode: "cards" | "list") => {

@@ -23,12 +23,11 @@ export default function LoginPage() {
   if (isAuthenticated || isGuestMode) {
     return null
   }
-
   const continueWithoutLogin = () => {
-    continueAsGuest()
-  }
+    continueAsGuest();
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
 
@@ -39,16 +38,24 @@ export default function LoginPage() {
 
     setIsLoading(true)
 
-    try {
-      if (isLoginMode) {
-        login(email, password)
-      } else {
-        signup(email, password, name)
-      }
-    } catch (err) {
-      setError("Authentication failed. Please try again.")
-    } finally {
-      setIsLoading(false)
+    if (isLoginMode) {
+      login(email, password)
+        .then(() => {
+          setIsLoading(false)
+        })
+        .catch((err) => {
+          setError(err.message || "Authentication failed")
+          setIsLoading(false)
+        })
+    } else {
+      signup(email, password, name)
+        .then(() => {
+          setIsLoading(false)
+        })
+        .catch((err) => {
+          setError(err.message || "Authentication failed")
+          setIsLoading(false)
+        })
     }
   }
 

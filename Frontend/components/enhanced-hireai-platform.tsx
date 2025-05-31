@@ -30,11 +30,22 @@ import {
   BarChart3,
   Crown,
   Clock,
+  Star,
+  Briefcase,
+  Code,
+  Award,
+  MapPin,
+  Calendar,
+  DollarSign,
+  Eye,
+  Linkedin,
+  Github,
+  Check,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar } from "@/components/ui/avatar"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
@@ -82,128 +93,7 @@ interface Candidate {
   status: "new" | "contacted" | "interviewing" | "hired" | "rejected"
 }
 
-const mockCandidates: Candidate[] = [
-  {
-    id: "1",
-    name: "Sarah Chen",
-    title: "Senior AI Engineer",
-    company: "TechCorp",
-    location: "San Francisco, CA",
-    experience: 6,
-    skills: ["LangChain", "RAG", "Python", "TensorFlow", "OpenAI API", "Vector Databases"],
-    score: 95,
-    avatar: "/placeholder.svg?height=400&width=400",
-    summary:
-      "Experienced AI engineer specializing in RAG systems and LangChain applications. Built production-scale AI systems for fintech and healthcare with 99.9% uptime.",
-    salary: "$140,000 - $180,000",
-    availability: "Open to new opportunities",
-    lastActive: "2 hours ago",
-    matchReasons: [
-      "Expert in LangChain and RAG systems",
-      "6+ years of AI/ML experience",
-      "Strong Python and TensorFlow background",
-      "Production experience with vector databases",
-    ],
-    githubStars: 1200,
-    publications: 3,
-    languages: ["English", "Mandarin", "Spanish"],
-    education: "MS Computer Science, Stanford University",
-    certifications: ["AWS Machine Learning Specialty", "Google Cloud Professional ML Engineer"],
-    projects: [
-      "RAG-powered customer support system handling 10K queries/day",
-      "Multi-modal AI assistant with voice and image capabilities",
-      "Vector search optimization reducing latency by 60%",
-    ],
-    socialLinks: {
-      github: "https://github.com/sarahchen",
-      linkedin: "https://linkedin.com/in/sarahchen",
-      portfolio: "https://sarahchen.dev",
-    },
-    email: "sarah.chen@email.com",
-    phone: "+1 (555) 123-4567",
-    yearsInAI: 4,
-    status: "new",
-  },
-  {
-    id: "2",
-    name: "Marcus Rodriguez",
-    title: "GenAI Research Scientist",
-    company: "AI Research Lab",
-    location: "New York, NY",
-    experience: 8,
-    skills: ["Transformers", "LangChain", "PyTorch", "Hugging Face", "RLHF", "Fine-tuning"],
-    score: 92,
-    avatar: "/placeholder.svg?height=400&width=400",
-    summary:
-      "Research scientist with deep expertise in transformer architectures and retrieval-augmented generation. Published 15+ papers in top AI conferences.",
-    salary: "$160,000 - $220,000",
-    availability: "Available for consulting",
-    lastActive: "1 day ago",
-    matchReasons: [
-      "PhD in AI with 15+ publications",
-      "Expert in transformer architectures",
-      "Strong LangChain and RAG experience",
-      "Research background in RLHF and fine-tuning",
-    ],
-    githubStars: 5000,
-    publications: 15,
-    languages: ["English", "Spanish", "Portuguese"],
-    education: "PhD Artificial Intelligence, MIT",
-    certifications: ["NVIDIA Deep Learning Institute", "Meta AI Research Certification"],
-    projects: [
-      "Novel RAG architecture for code generation (SOTA results)",
-      "Multi-agent LangChain system for enterprise workflows",
-      "Open-source transformer fine-tuning framework",
-    ],
-    socialLinks: {
-      github: "https://github.com/marcusr",
-      linkedin: "https://linkedin.com/in/marcusrodriguez",
-    },
-    email: "marcus.r@email.com",
-    yearsInAI: 6,
-    status: "contacted",
-  },
-  {
-    id: "3",
-    name: "Elena Kowalski",
-    title: "AI Product Engineer",
-    company: "StartupAI",
-    location: "Austin, TX",
-    experience: 5,
-    skills: ["LangChain", "FastAPI", "React", "Vector Databases", "AWS", "Product Development"],
-    score: 88,
-    avatar: "/placeholder.svg?height=400&width=400",
-    summary:
-      "Full-stack AI engineer building user-facing AI products. Expert in integrating LLMs into production applications with focus on scalability and UX.",
-    salary: "$120,000 - $160,000",
-    availability: "Open to full-time and contract",
-    lastActive: "3 hours ago",
-    matchReasons: [
-      "Strong product engineering background",
-      "Experience with LangChain in production",
-      "Full-stack development skills",
-      "Proven track record with AI products",
-    ],
-    githubStars: 800,
-    publications: 1,
-    languages: ["English", "Polish", "German"],
-    education: "BS Software Engineering, University of Texas",
-    certifications: ["AWS Solutions Architect", "MongoDB Certified Developer"],
-    projects: [
-      "AI-powered content management system for media companies",
-      "Real-time RAG chat application with 99.9% uptime",
-      "LangChain workflow automation platform",
-    ],
-    socialLinks: {
-      github: "https://github.com/elenakowalski",
-      linkedin: "https://linkedin.com/in/elenakowalski",
-      portfolio: "https://elenakowalski.dev",
-    },
-    email: "elena.k@email.com",
-    yearsInAI: 3,
-    status: "interviewing",
-  },
-]
+const mockCandidates: Candidate[] = []
 
 export function EnhancedHireAIPlatform() {
   const { isAuthenticated, isGuestMode, logout, messageCount, incrementMessageCount, hasReachedMessageLimit } =
@@ -222,7 +112,7 @@ export function EnhancedHireAIPlatform() {
   const [currentMessage, setCurrentMessage] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [isListening, setIsListening] = useState(false)
-  const [viewMode, setViewMode] = useState<"cards" | "list">("cards")
+  const [viewMode, setViewMode] = useState<"card" | "list">("card")
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([])
   const [currentCandidateIndex, setCurrentCandidateIndex] = useState(0)
   const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null)
@@ -268,32 +158,64 @@ export function EnhancedHireAIPlatform() {
       content: currentMessage,
       timestamp: new Date(),
     }
-
     setMessages((prev) => [...prev, userMessage])
     setCurrentMessage("")
     setIsTyping(true)
+    setShowCandidates(false)
 
-    // Increment message count for non-logged-in users
-    incrementMessageCount()
+    try {
+      const response = await fetch("http://localhost:5001/search", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: currentMessage,
+        }),
+      })
 
-    // Simulate AI processing
-    setTimeout(() => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      const candidates = data.candidates || []
+
+      setSearchResults(candidates)
+      setCurrentCandidateIndex(0)
+      setSwipeDirection(null)
+
       const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: Date.now().toString(),
         type: "assistant",
-        content: `I found ${mockCandidates.length} excellent candidates matching your criteria for "${currentMessage}". These professionals have strong backgrounds in the areas you mentioned. Would you like to view them as cards for quick swiping or as a detailed list?`,
+        content: data.message || "I've found some candidates that match your criteria. Would you like to see them?",
         timestamp: new Date(),
-        candidates: mockCandidates,
-        showViewOptions: true,
       }
 
       setMessages((prev) => [...prev, assistantMessage])
-      setSearchResults(mockCandidates)
+
+      if (isGuestMode) {
+        incrementMessageCount()
+      }
+
+      if (candidates.length > 0) {
+        setShowCandidates(true)
+      }
+    } catch (error) {
+      console.error("Error:", error)
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        type: "assistant",
+        content: "I'm sorry, I encountered an error while searching for candidates. Please try again.",
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, errorMessage])
+    } finally {
       setIsTyping(false)
-    }, 2000)
+    }
   }
 
-  const handleViewModeSelect = (mode: "cards" | "list") => {
+  const handleViewModeSelect = (mode: "card" | "list") => {
     setViewMode(mode)
     setShowCandidates(true)
   }
@@ -308,25 +230,44 @@ export function EnhancedHireAIPlatform() {
       }
     }
 
-    setTimeout(() => {
-      setCurrentCandidateIndex((prev) => (prev + 1) % searchResults.length)
-      setSwipeDirection(null)
-    }, 300)
   }
 
   const toggleCandidateSelection = (candidateId: string) => {
     setSelectedCandidates((prev) =>
-      prev.includes(candidateId) ? prev.filter((id) => id !== candidateId) : [...prev, candidateId],
+      prev.includes(candidateId) ? prev.filter((id) => id !== candidateId) : [...prev, candidateId]
     )
   }
+
+
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return
     setIsSearching(true)
-    setTimeout(() => {
-      setSearchResults(mockCandidates)
+    
+    try {
+      // Fetch candidates from the Flask API
+      const response = await fetch('http://localhost:5001/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: searchQuery,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch candidates')
+      }
+
+      const data = await response.json()
+      setSearchResults(data.candidates || [])
+    } catch (error) {
+      console.error('Error fetching candidates:', error)
+      setSearchResults([])
+    } finally {
       setIsSearching(false)
-    }, 2000)
+    }
   }
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -340,26 +281,33 @@ export function EnhancedHireAIPlatform() {
     if (selectedCandidates.length === 0) return
     setIsGeneratingOutreach(true)
 
-    setTimeout(() => {
+    try {
       const messages: Record<string, string> = {}
-      selectedCandidates.forEach((candidateId) => {
-        const candidate = mockCandidates.find((c) => c.id === candidateId)
+      
+      // Get the selected candidates from searchResults
+      for (const candidateId of selectedCandidates) {
+        const candidate = searchResults.find((c) => c.id === candidateId)
         if (candidate) {
+          // Generate personalized outreach message based on candidate data
           messages[candidateId] = `Hi ${candidate.name},
 
-I hope this email finds you well. I came across your impressive profile and was particularly drawn to your expertise in ${candidate.skills[0]} and ${candidate.skills[1]}.
+I hope this email finds you well. I came across your impressive profile${candidate.skills?.length > 0 ? ` and was particularly drawn to your expertise in ${candidate.skills[0]}${candidate.skills.length > 1 ? ` and ${candidate.skills[1]}` : ''}` : ''}.
 
-At our company, we're building cutting-edge AI solutions, and we believe your background in ${candidate.title} would be a perfect fit for our team. Your experience with ${candidate.skills.slice(0, 3).join(", ")} aligns perfectly with what we're looking for.
+At our company, we're building cutting-edge AI solutions, and we believe your background${candidate.title ? ` in ${candidate.title}` : ''} would be a perfect fit for our team.${candidate.skills?.length > 0 ? ` Your experience with ${candidate.skills.slice(0, Math.min(3, candidate.skills.length)).join(", ")} aligns perfectly with what we're looking for.` : ''}
 
 Would you be interested in a brief conversation about an exciting opportunity? I'd love to learn more about your career goals and share how you could make a significant impact with us.
 
 Best regards,
 [Your Name]`
         }
-      })
+      }
+      
       setOutreachMessages(messages)
+    } catch (error) {
+      console.error('Error generating outreach messages:', error)
+    } finally {
       setIsGeneratingOutreach(false)
-    }, 3000)
+    }
   }
 
   const navigationItems = [
@@ -717,7 +665,11 @@ Best regards,
                     <span className="font-bold text-violet-400">{selectedCandidates.length}</span> candidates selected
                   </span>
                   <div className="flex space-x-2">
-                    <Button size="sm" variant="outline" className="border-violet-500/30 text-violet-300">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-violet-500/30 text-violet-300"
+                    >
                       <Download className="w-4 h-4 mr-2" />
                       Export
                     </Button>
@@ -969,10 +921,10 @@ function CandidateResults({
 
           <div className="flex bg-gray-900/50 rounded-lg p-1 border border-violet-500/20">
             <Button
-              variant={viewMode === "cards" ? "default" : "ghost"}
+              variant={viewMode === "card" ? "default" : "ghost"}
               size="sm"
-              onClick={() => setViewMode("cards")}
-              className={viewMode === "cards" ? "bg-violet-600 text-white" : "text-violet-300 hover:text-white"}
+              onClick={() => setViewMode("card")}
+              className={viewMode === "card" ? "bg-violet-600 text-white" : "text-violet-300 hover:text-white"}
             >
               <Grid3X3 className="w-4 h-4 mr-2" />
               Cards
@@ -990,54 +942,49 @@ function CandidateResults({
         </div>
       </div>
 
-      {viewMode === "cards" ? (
+      {viewMode === "card" ? (
         <div className="flex justify-center">
           <div className="relative w-full max-w-md h-[700px]">
-            {searchResults.map((candidate: Candidate, index: number) => {
-              if (index < currentCandidateIndex || index > currentCandidateIndex + 2) return null
-
-              const isCurrent = index === currentCandidateIndex
-              const zIndex = searchResults.length - index
-
-              return (
-                <SwipeCard
-                  key={candidate.id}
-                  candidate={candidate}
-                  isCurrent={isCurrent}
-                  zIndex={zIndex}
-                  direction={isCurrent ? swipeDirection : null}
-                  onSwipe={handleSwipe}
-                  isGuestMode={isGuestMode}
-                />
-              )
-            })}
-
-            <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-6">
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => handleSwipe("left")}
-                className="w-16 h-16 rounded-full border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:scale-110 transition-all"
-              >
-                <XCircle className="w-8 h-8" />
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => handleSwipe("right")}
-                className="w-16 h-16 rounded-full border-green-500/30 bg-green-500/10 text-green-400 hover:bg-green-500/20 hover:scale-110 transition-all"
-              >
-                <CheckCircle className="w-8 h-8" />
-              </Button>
-            </div>
-
-            <div className="absolute top-6 left-1/2 transform -translate-x-1/2">
-              <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-full border border-violet-500/30">
-                <span className="text-violet-200 text-sm">
-                  {currentCandidateIndex + 1} / {searchResults.length}
-                </span>
+            {searchResults.length > 0 ? (
+              <div className="h-full">
+                {searchResults.map((candidate, index) => (
+                  <SwipeCardComponent
+                    key={candidate.id}
+                    candidate={candidate}
+                    isCurrent={index === currentCandidateIndex}
+                    zIndex={searchResults.length - index}
+                    direction={swipeDirection}
+                    onSwipe={handleSwipe}
+                  />
+                ))}
+                <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-4">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="rounded-full w-14 h-14 bg-red-500/10 border-red-500/30 text-red-500 hover:bg-red-500/20 hover:text-red-400"
+                    onClick={() => handleSwipe("left")}
+                  >
+                    <X className="w-6 h-6" />
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="rounded-full w-14 h-14 bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20 hover:text-green-400"
+                    onClick={() => handleSwipe("right")}
+                  >
+                    <Check className="w-6 h-6" />
+                  </Button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="h-full flex items-center justify-center">
+                <div className="text-center">
+                  <Users className="w-12 h-12 text-violet-500/50 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-white mb-2">No candidates found</h3>
+                  <p className="text-violet-300">Try adjusting your search criteria</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       ) : (
@@ -1055,6 +1002,173 @@ function CandidateResults({
         </div>
       )}
     </div>
+  )
+}
+
+// SwipeCard Component Implementation
+function SwipeCardComponent({
+  candidate,
+  isCurrent,
+  zIndex,
+  direction,
+  onSwipe,
+}: {
+  candidate: Candidate
+  isCurrent: boolean
+  zIndex: number
+  direction: "left" | "right" | null
+  onSwipe: (direction: "left" | "right") => void
+}) {
+  const [dragX, setDragX] = useState(0)
+
+  const getRotation = () => {
+    if (direction === "left") return -30
+    if (direction === "right") return 30
+    return dragX * 0.1
+  }
+
+  const getOpacity = () => {
+    if (direction) return 0
+    return 1 - Math.abs(dragX) * 0.001
+  }
+
+  const getScale = () => {
+    if (!isCurrent) return 0.95 - (zIndex - 1) * 0.05
+    return 1
+  }
+
+  return (
+    <motion.div
+      className="absolute inset-0 cursor-grab active:cursor-grabbing"
+      style={{ zIndex }}
+      drag={isCurrent ? "x" : false}
+      dragConstraints={{ left: 0, right: 0 }}
+      onDrag={(_, info) => setDragX(info.offset.x)}
+      onDragEnd={(_, info) => {
+        const threshold = 100
+        if (Math.abs(info.offset.x) > threshold) {
+          onSwipe(info.offset.x > 0 ? "right" : "left")
+        }
+        setDragX(0)
+      }}
+      animate={{
+        x: direction === "left" ? -1000 : direction === "right" ? 1000 : dragX,
+        rotate: getRotation(),
+        opacity: getOpacity(),
+        scale: getScale(),
+      }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+    >
+      <Card className="h-full bg-gradient-to-b from-gray-900/90 to-black/90 border-violet-500/20 backdrop-blur-xl shadow-2xl shadow-violet-500/10 overflow-hidden">
+        <CardContent className="p-0 h-full flex flex-col">
+          {/* Header */}
+          <div className="relative h-48 bg-gradient-to-br from-violet-600/20 via-purple-600/20 to-pink-600/20 overflow-hidden">
+            <div className="absolute inset-0 bg-black/20" />
+            <div className="absolute top-4 right-4 z-10">
+              <div className="flex items-center bg-yellow-500/20 backdrop-blur-sm px-3 py-1 rounded-full border border-yellow-500/30">
+                <Star className="w-4 h-4 text-yellow-400 mr-1" fill="currentColor" />
+                <span className="text-sm font-bold text-yellow-300">{candidate.score}</span>
+              </div>
+            </div>
+            <div className="absolute bottom-4 left-4 right-4 z-10">
+              <div className="flex items-center space-x-3">
+                <Avatar className="w-16 h-16 border-2 border-white/20">
+                  <AvatarImage src={candidate.avatar || "/placeholder.svg"} />
+                  <AvatarFallback className="bg-violet-600 text-white">
+                    {candidate.name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-xl font-bold text-white truncate">{candidate.name}</h3>
+                  <p className="text-violet-200 text-sm truncate">{candidate.title}</p>
+                  <p className="text-violet-300/80 text-xs truncate">{candidate.company}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 p-6 space-y-4 overflow-y-auto">
+            {/* Quick Stats */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="text-center p-3 bg-violet-500/10 rounded-lg border border-violet-500/20">
+                <Briefcase className="w-5 h-5 text-violet-400 mx-auto mb-1" />
+                <div className="text-lg font-bold text-white">{candidate.experience}</div>
+                <div className="text-xs text-violet-300">Years</div>
+              </div>
+              <div className="text-center p-3 bg-violet-500/10 rounded-lg border border-violet-500/20">
+                <Code className="w-5 h-5 text-green-400 mx-auto mb-1" />
+                <div className="text-lg font-bold text-white">{candidate.githubStars || 0}</div>
+                <div className="text-xs text-violet-300">Stars</div>
+              </div>
+              <div className="text-center p-3 bg-violet-500/10 rounded-lg border border-violet-500/20">
+                <Award className="w-5 h-5 text-purple-400 mx-auto mb-1" />
+                <div className="text-lg font-bold text-white">{candidate.publications || 0}</div>
+                <div className="text-xs text-violet-300">Papers</div>
+              </div>
+            </div>
+
+            {/* Location & Availability */}
+            <div className="space-y-2">
+              <div className="flex items-center text-sm text-violet-200">
+                <MapPin className="w-4 h-4 mr-2 text-violet-400" />
+                {candidate.location}
+              </div>
+              <div className="flex items-center text-sm text-violet-200">
+                <Calendar className="w-4 h-4 mr-2 text-violet-400" />
+                {candidate.availability || 'Available now'}
+              </div>
+              <div className="flex items-center text-sm text-violet-200">
+                <DollarSign className="w-4 h-4 mr-2 text-violet-400" />
+                {candidate.salary || 'Salary negotiable'}
+              </div>
+            </div>
+
+            {/* Skills */}
+            <div>
+              <h4 className="text-sm font-medium text-violet-300 mb-2">Top Skills</h4>
+              <div className="flex flex-wrap gap-2">
+                {candidate.skills?.slice(0, 5).map((skill, i) => (
+                  <Badge key={i} className="bg-violet-500/20 text-violet-200 border-violet-500/30">
+                    {skill}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            {/* Summary */}
+            <div>
+              <h4 className="text-sm font-medium text-violet-300 mb-2">Summary</h4>
+              <p className="text-sm text-violet-100">{candidate.summary}</p>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="p-4 border-t border-violet-500/20 flex justify-between items-center">
+            <div className="flex space-x-2">
+              {candidate.socialLinks?.github && (
+                <Button size="sm" variant="ghost" className="text-violet-400 hover:text-white p-1">
+                  <Github className="w-4 h-4" />
+                </Button>
+              )}
+              {candidate.socialLinks?.linkedin && (
+                <Button size="sm" variant="ghost" className="text-violet-400 hover:text-white p-1">
+                  <Linkedin className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+
+            <div className="flex items-center text-xs text-violet-300">
+              <Clock className="w-3 h-3 mr-1" />
+              Last active: {candidate.lastActive || 'Recently'}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
   )
 }
 
@@ -2087,61 +2201,121 @@ interface CandidateListCardProps {
   index: number
   isSelected: boolean
   onToggleSelect: () => void
-  isGuestMode: boolean
+  isGuestMode?: boolean
 }
 
-function CandidateListCard({ candidate, index, isSelected, onToggleSelect, isGuestMode }: CandidateListCardProps) {
+function CandidateListCard({
+  candidate,
+  index,
+  isSelected,
+  onToggleSelect,
+  isGuestMode,
+}: CandidateListCardProps) {
   return (
-    <Card className="bg-black/40 border-violet-500/20 backdrop-blur-xl">
-      <CardContent className="p-6">
-        <div className="flex items-center space-x-6">
-          <div>
-            <Avatar className="w-16 h-16">
-              <img src={candidate.avatar || "/placeholder.svg"} alt={candidate.name} />
-            </Avatar>
-          </div>
-          <div className="flex-1">
-            <h3 className="text-xl font-semibold text-white">{candidate.name}</h3>
-            <p className="text-violet-300">
-              {candidate.title} at {candidate.company}
-            </p>
-            <div className="flex items-center space-x-4 mt-2">
-              <Badge className="bg-green-500/20 text-green-300 border-green-500/30">{candidate.score}% Match</Badge>
-              <span className="text-sm text-violet-200">{candidate.experience} years exp</span>
-              <span className="text-sm text-violet-200">{candidate.location}</span>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.1 }}
+      className={cn("group cursor-pointer transition-all duration-300", isSelected && "ring-2 ring-violet-500/50")}
+      onClick={onToggleSelect}
+    >
+      <Card className="bg-gray-900/50 border-violet-500/20 hover:bg-gray-900/70 hover:border-violet-500/40 transition-all duration-300 backdrop-blur-xl">
+        <CardContent className="p-6">
+          {/* Header */}
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <Avatar className="w-12 h-12 border-2 border-violet-500/30">
+                <AvatarImage src={candidate.avatar || "/placeholder.svg"} />
+                <AvatarFallback className="bg-violet-600 text-white">
+                  {candidate.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h3 className="font-semibold text-white group-hover:text-violet-200 transition-colors">
+                  {candidate.name}
+                </h3>
+                <p className="text-sm text-violet-300">{candidate.title}</p>
+                <p className="text-xs text-violet-400">{candidate.company}</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1 bg-yellow-500/20 px-2 py-1 rounded-full">
+                <Star className="w-3 h-3 text-yellow-400" fill="currentColor" />
+                <span className="text-xs font-medium text-yellow-300">{candidate.score}</span>
+              </div>
+              {isSelected && (
+                <div className="w-6 h-6 bg-violet-500 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 text-white" />
+                </div>
+              )}
             </div>
           </div>
-          <div className="flex flex-col items-end space-y-2">
-            <Button
-              variant={isSelected ? "default" : "outline"}
-              onClick={onToggleSelect}
-              className={isSelected ? "bg-violet-600 text-white" : "border-violet-500/30 text-violet-300"}
-            >
-              {isSelected ? "Selected" : "Select"}
-            </Button>
-            {isGuestMode ? (
-              <Button size="sm" className="bg-yellow-600 hover:bg-yellow-700">
-                Upgrade for Contact
-              </Button>
-            ) : (
-              <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                Contact
-              </Button>
-            )}
+
+          {/* Details */}
+          <div className="space-y-2 mb-4">
+            <div className="flex items-center text-sm text-violet-200">
+              <MapPin className="w-3 h-3 mr-2 text-violet-400" />
+              {candidate.location}
+            </div>
+            <div className="flex items-center text-sm text-violet-200">
+              <Briefcase className="w-3 h-3 mr-2 text-violet-400" />
+              {candidate.experience} years experience
+            </div>
+            <div className="flex items-center text-sm text-violet-200">
+              <DollarSign className="w-3 h-3 mr-2 text-violet-400" />
+              {candidate.salary || 'Salary negotiable'}
+            </div>
           </div>
-        </div>
-        <div className="mt-4">
-          <h4 className="text-lg font-medium text-white">Skills</h4>
-          <div className="flex flex-wrap gap-2">
-            {candidate.skills.map((skill) => (
-              <Badge key={skill} className="bg-violet-500/20 text-violet-300 border-violet-500/30">
+
+          {/* Summary */}
+          <p className="text-sm text-violet-100 mb-4 line-clamp-2">{candidate.summary}</p>
+
+          {/* Skills */}
+          <div className="flex flex-wrap gap-1 mb-4">
+            {candidate.skills?.slice(0, 4).map((skill, i) => (
+              <Badge key={i} className="text-xs bg-violet-500/20 text-violet-200 border-violet-500/30">
                 {skill}
               </Badge>
             ))}
+            {candidate.skills?.length > 4 && (
+              <Badge className="text-xs bg-gray-700/50 text-gray-300">+{candidate.skills.length - 4}</Badge>
+            )}
           </div>
-        </div>
-      </CardContent>
-    </Card>
+
+          {/* Actions */}
+          <div className="flex items-center justify-between pt-4 border-t border-violet-500/20">
+            <div className="flex items-center space-x-2">
+              {candidate.socialLinks?.github && (
+                <Button size="sm" variant="ghost" className="text-violet-400 hover:text-white p-1">
+                  <Github className="w-4 h-4" />
+                </Button>
+              )}
+              {candidate.socialLinks?.linkedin && (
+                <Button size="sm" variant="ghost" className="text-violet-400 hover:text-white p-1">
+                  <Linkedin className="w-4 h-4" />
+                </Button>
+              )}
+              {candidate.socialLinks?.portfolio && (
+                <Button size="sm" variant="ghost" className="text-violet-400 hover:text-white p-1">
+                  <Globe className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button size="sm" variant="outline" className="border-violet-500/30 text-violet-300 hover:text-white">
+                <Eye className="w-4 h-4" />
+              </Button>
+              <Button size="sm" className="bg-violet-600 hover:bg-violet-700">
+                <MessageSquare className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
   )
 }
 

@@ -9,11 +9,6 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 import logging
 from pathlib import Path
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-
-app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -422,80 +417,7 @@ class CandidateEmbeddings:
                 'batch_results': {}
             }
 
-# Initialize the candidate search instance
-candidate_search = CandidateEmbeddings()
-
-def initialize_search_system():
-    """Initialize the search system on startup"""
-    try:
-        # Try different possible paths for candidates.json
-        possible_paths = [
-            'candidates.json',
-            'data/candidates.json',
-            '../data/candidates.json',
-            './data/candidates.json'
-        ]
-        
-        candidates_path = None
-        for path in possible_paths:
-            if os.path.exists(path):
-                candidates_path = path
-                break
-        
-        if not candidates_path:
-            logger.error("candidates.json not found in any of the expected locations")
-            logger.info(f"Searched in: {possible_paths}")
-            logger.info("Please ensure candidates.json exists in one of these locations")
-            return False
-        
-        candidate_search.load_candidates(candidates_path)
-        candidate_search.generate_embeddings()
-        logger.info("Search system initialized successfully")
-        return True
-    except Exception as e:
-        logger.error(f"Setup failed: {e}")
-        return False
-
-# Initialize on import
-search_initialized = initialize_search_system()
-
-@app.route('/search', methods=['POST'])
-def search_candidates():
-    if not search_initialized:
-        return jsonify({'error': 'Search system not initialized. Please check if candidates.json exists.'}), 500
-    
-    data = request.get_json()
-    if not data:
-        return jsonify({'error': 'No JSON data provided'}), 400
-    
-    query = data.get('query')
-    k = data.get('top_k', 5)
-
-    if not query:
-        return jsonify({'error': 'Missing query in request'}), 400
-
-    try:
-        results = candidate_search.search_candidates_json(query=query, k=k)
-        return jsonify(results), 200
-    except Exception as e:
-        logger.error(f"Search failed: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'search_initialized': search_initialized,
-        'candidates_loaded': len(candidate_search.candidates) if search_initialized else 0
-    }), 200
-
 def main():
-    """Main function for standalone execution"""
-    if not search_initialized:
-        logger.error("Cannot run main() - search system not initialized")
-        return
-    
     # Initialize with custom config
     config = SearchConfig(
         similarity_weight=0.3,
@@ -508,13 +430,6 @@ def main():
     
     # Load candidates
     candidates_path = Path('data') / 'candidates.json'
-    if not candidates_path.exists():
-        candidates_path = Path('candidates.json')
-    
-    if not candidates_path.exists():
-        logger.error("candidates.json not found")
-        return
-    
     embedder.load_candidates(str(candidates_path))
     embedder.generate_embeddings()
 
@@ -554,8 +469,5 @@ def main():
     
     print(f"\nResults saved to {output_path}")
 
-if __name__ == '__main__':
-    if len(os.sys.argv) > 1 and os.sys.argv[1] == 'main':
-        main()
-    else:
-        app.run(debug=True, host='0.0.0.0', port=5001)
+if __name__ == "__main__":
+    main()
