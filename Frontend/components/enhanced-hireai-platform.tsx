@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Send,
@@ -118,6 +118,7 @@ export function EnhancedHireAIPlatform() {
   const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null)
   const [showCandidates, setShowCandidates] = useState(false)
   const [searchResults, setSearchResults] = useState<Candidate[]>([])
+  const [swipedCardIds, setSwipedCardIds] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [isSearching, setIsSearching] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
@@ -223,13 +224,26 @@ export function EnhancedHireAIPlatform() {
   const handleSwipe = (direction: "left" | "right") => {
     setSwipeDirection(direction)
 
+    // Get the current candidate ID
+    const candidateId = searchResults[currentCandidateIndex].id
+    
+    // Add the candidate to selected candidates if swiped right
     if (direction === "right") {
-      const candidateId = searchResults[currentCandidateIndex].id
       if (!selectedCandidates.includes(candidateId)) {
         setSelectedCandidates((prev) => [...prev, candidateId])
       }
     }
+    
+    // Add the candidate to swiped cards
+    setSwipedCardIds((prev) => [...prev, candidateId])
 
+    // Add a timeout to reset the swipe direction and move to the next card
+    setTimeout(() => {
+      setSwipeDirection(null)
+      if (currentCandidateIndex < searchResults.length - 1) {
+        setCurrentCandidateIndex(currentCandidateIndex + 1)
+      }
+    }, 300) // Short delay to allow animation to complete
   }
 
   const toggleCandidateSelection = (candidateId: string) => {
@@ -237,8 +251,6 @@ export function EnhancedHireAIPlatform() {
       prev.includes(candidateId) ? prev.filter((id) => id !== candidateId) : [...prev, candidateId]
     )
   }
-
-
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return
@@ -577,6 +589,7 @@ Best regards,
                     setShowCandidates={setShowCandidates}
                     generateOutreach={generateOutreach}
                     isGeneratingOutreach={isGeneratingOutreach}
+                    swipedCardIds={swipedCardIds}
                     isAuthenticated={isAuthenticated}
                     isGuestMode={isGuestMode}
                   />
@@ -901,6 +914,7 @@ function CandidateResults({
   isGeneratingOutreach,
   isAuthenticated,
   isGuestMode,
+  swipedCardIds,
 }: any) {
   return (
     <div>
@@ -947,32 +961,38 @@ function CandidateResults({
           <div className="relative w-full max-w-md h-[700px]">
             {searchResults.length > 0 ? (
               <div className="h-full">
-                {searchResults.map((candidate, index) => (
-                  <SwipeCardComponent
-                    key={candidate.id}
-                    candidate={candidate}
-                    isCurrent={index === currentCandidateIndex}
-                    zIndex={searchResults.length - index}
-                    direction={swipeDirection}
-                    onSwipe={handleSwipe}
-                  />
-                ))}
-                <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-4">
+                {/* Memoize the filtered candidates to prevent unnecessary re-renders */}
+                {useMemo(() => {
+                  const filteredCandidates = searchResults.filter((candidate: Candidate) => !swipedCardIds.includes(candidate.id));
+                  return filteredCandidates.map((candidate: Candidate, index: number) => (
+                    <SwipeCardComponent
+                      key={candidate.id}
+                      candidate={candidate}
+                      isCurrent={index === 0} // First non-swiped card is always current
+                      zIndex={searchResults.length - index}
+                      direction={index === 0 ? swipeDirection : null} // Only apply direction to current card
+                      onSwipe={handleSwipe}
+                    />
+                  ));
+                }, [searchResults, swipedCardIds, swipeDirection])
+                }
+                {/* Fixed positioning for swipe buttons - moved outside card content for better placement */}
+                <div className="absolute bottom-8 left-0 right-0 flex justify-center space-x-6 z-50">
                   <Button
                     size="lg"
                     variant="outline"
-                    className="rounded-full w-14 h-14 bg-red-500/10 border-red-500/30 text-red-500 hover:bg-red-500/20 hover:text-red-400"
+                    className="rounded-full w-16 h-16 bg-red-500/10 border-red-500/30 text-red-500 hover:bg-red-500/20 hover:text-red-400 shadow-lg"
                     onClick={() => handleSwipe("left")}
                   >
-                    <X className="w-6 h-6" />
+                    <X className="w-7 h-7" />
                   </Button>
                   <Button
                     size="lg"
                     variant="outline"
-                    className="rounded-full w-14 h-14 bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20 hover:text-green-400"
+                    className="rounded-full w-16 h-16 bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20 hover:text-green-400 shadow-lg"
                     onClick={() => handleSwipe("right")}
                   >
-                    <Check className="w-6 h-6" />
+                    <Check className="w-7 h-7" />
                   </Button>
                 </div>
               </div>
@@ -1021,26 +1041,38 @@ function SwipeCardComponent({
 }) {
   const [dragX, setDragX] = useState(0)
 
-  const getRotation = () => {
+  // Memoize these calculations to reduce re-renders
+  const rotation = useMemo(() => {
     if (direction === "left") return -30
     if (direction === "right") return 30
     return dragX * 0.1
-  }
+  }, [direction, dragX])
 
-  const getOpacity = () => {
+  const opacity = useMemo(() => {
     if (direction) return 0
     return 1 - Math.abs(dragX) * 0.001
-  }
+  }, [direction, dragX])
 
-  const getScale = () => {
+  const scale = useMemo(() => {
     if (!isCurrent) return 0.95 - (zIndex - 1) * 0.05
     return 1
-  }
+  }, [isCurrent, zIndex])
+
+  // Memoize animation values to prevent unnecessary re-renders
+  const animationValues = useMemo(() => ({
+    x: direction === "left" ? -1000 : direction === "right" ? 1000 : dragX,
+    rotate: rotation,
+    opacity: opacity,
+    scale: scale,
+  }), [direction, dragX, rotation, opacity, scale])
 
   return (
     <motion.div
       className="absolute inset-0 cursor-grab active:cursor-grabbing"
-      style={{ zIndex }}
+      style={{ 
+        zIndex,
+        willChange: "transform", // Hardware acceleration hint
+      }}
       drag={isCurrent ? "x" : false}
       dragConstraints={{ left: 0, right: 0 }}
       onDrag={(_, info) => setDragX(info.offset.x)}
@@ -1051,13 +1083,15 @@ function SwipeCardComponent({
         }
         setDragX(0)
       }}
-      animate={{
-        x: direction === "left" ? -1000 : direction === "right" ? 1000 : dragX,
-        rotate: getRotation(),
-        opacity: getOpacity(),
-        scale: getScale(),
+      animate={animationValues}
+      transition={{ 
+        type: "spring", 
+        stiffness: 300, 
+        damping: 30,
+        translateX: { type: "spring", stiffness: 300, damping: 30 },
+        rotate: { type: "spring", stiffness: 300, damping: 30 },
+        scale: { type: "spring", stiffness: 300, damping: 30 },
       }}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
     >
       <Card className="h-full bg-gradient-to-b from-gray-900/90 to-black/90 border-violet-500/20 backdrop-blur-xl shadow-2xl shadow-violet-500/10 overflow-hidden">
         <CardContent className="p-0 h-full flex flex-col">
