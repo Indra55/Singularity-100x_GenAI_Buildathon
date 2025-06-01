@@ -7,6 +7,12 @@ const API_URL = 'http://localhost:5000/api';
 interface User {
   email: string;
   name?: string;
+  onboardingComplete?: boolean;
+  companyName?: string;
+  industrySector?: string;
+  companySize?: number;
+  officeLocations?: string[];
+  keyDepartments?: string[];
 }
 
 interface AuthContextType {
@@ -21,6 +27,13 @@ interface AuthContextType {
   incrementMessageCount: () => void;
   resetMessageCount: () => void;
   hasReachedMessageLimit: boolean;
+  updateCompanyInfo: (companyData: {
+    companyName: string;
+    industrySector: string;
+    companySize: number;
+    officeLocations: string[];
+    keyDepartments: string[];
+  }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -142,6 +155,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasReachedMessageLimit = !isAuthenticated && messageCount >= MESSAGE_LIMIT
 
+  const updateCompanyInfo = async (companyData: {
+    companyName: string;
+    industrySector: string;
+    companySize: number;
+    officeLocations: string[];
+    keyDepartments: string[];
+  }) => {
+    try {
+      const token = localStorage.getItem('hireai_token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${API_URL}/auth/company-survey`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(companyData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update company information');
+      }
+
+      const data = await response.json();
+      const updatedUser = { 
+        ...user, 
+        ...data.user,
+        onboardingComplete: true,
+        companyName: data.user.companyName,
+        industrySector: data.user.industrySector,
+        companySize: data.user.companySize,
+        officeLocations: data.user.officeLocations,
+        keyDepartments: data.user.keyDepartments
+      };
+      
+      setUser(updatedUser);
+      localStorage.setItem('hireai_user', JSON.stringify(updatedUser));
+    } catch (error) {
+      console.error('Update company info error:', error);
+      throw error;
+    }
+  };
+
   const value = {
     user,
     isAuthenticated,
@@ -154,6 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     incrementMessageCount,
     resetMessageCount,
     hasReachedMessageLimit,
+    updateCompanyInfo,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -8,9 +8,10 @@ import { Brain, User, Lock, Mail, ArrowRight, Sparkles, Eye, EyeOff, UserPlus, L
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/components/auth-context"
+import CompanySurveyForm from "@/components/company-survey-form"
 
 export default function LoginPage() {
-  const { isAuthenticated, isGuestMode, login, signup, continueAsGuest } = useAuth()
+  const { isAuthenticated, isGuestMode, login, signup, continueAsGuest, user } = useAuth()
   const [isLoginMode, setIsLoginMode] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState("")
@@ -18,10 +19,20 @@ export default function LoginPage() {
   const [name, setName] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [showCompanySurvey, setShowCompanySurvey] = useState(false)
 
   // If already authenticated or in guest mode, don't show the login page
   if (isAuthenticated || isGuestMode) {
+    // If authenticated and onboarding not complete, show company survey
+    if (isAuthenticated && user && !user.onboardingComplete) {
+      return <CompanySurveyForm />
+    }
     return null
+  }
+  
+  // Show company survey if signup was successful
+  if (showCompanySurvey) {
+    return <CompanySurveyForm />
   }
   const continueWithoutLogin = () => {
     continueAsGuest();
@@ -51,6 +62,7 @@ export default function LoginPage() {
       signup(email, password, name)
         .then(() => {
           setIsLoading(false)
+          setShowCompanySurvey(true)
         })
         .catch((err) => {
           setError(err.message || "Authentication failed")

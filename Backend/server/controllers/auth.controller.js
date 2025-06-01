@@ -58,7 +58,9 @@ exports.login = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
-    }    // Check password
+    }
+    
+    // Check password
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
       return res.status(401).json({ message: 'Incorrect password' });
@@ -78,6 +80,12 @@ exports.login = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        onboardingComplete: user.onboardingComplete,
+        companyName: user.companyName,
+        industrySector: user.industrySector,
+        companySize: user.companySize,
+        officeLocations: user.officeLocations,
+        keyDepartments: user.keyDepartments,
       },
     });
   } catch (error) {
@@ -85,3 +93,54 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: 'Error logging in' });
   }
 };
+
+// Handle company survey submission
+exports.submitCompanySurvey = async (req, res) => {
+  try {
+    const { userId } = req.user; // From auth middleware
+    const { 
+      companyName, 
+      industrySector, 
+      companySize, 
+      officeLocations, 
+      keyDepartments 
+    } = req.body;
+
+    // Find and update user
+    const user = await User.findByIdAndUpdate(
+      userId,
+      {
+        companyName,
+        industrySector,
+        companySize,
+        officeLocations,
+        keyDepartments,
+        onboardingComplete: true
+      },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json({
+      message: 'Company information saved successfully',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        onboardingComplete: user.onboardingComplete,
+        companyName: user.companyName,
+        industrySector: user.industrySector,
+        companySize: user.companySize,
+        officeLocations: user.officeLocations,
+        keyDepartments: user.keyDepartments,
+      },
+    });
+  } catch (error) {
+    console.error('Company survey submission error:', error);
+    res.status(500).json({ message: 'Error saving company information' });
+  }
+};
+

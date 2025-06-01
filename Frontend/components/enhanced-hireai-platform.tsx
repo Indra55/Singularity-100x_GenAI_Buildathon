@@ -48,8 +48,10 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
+import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/components/auth-context"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 interface Message {
   id: string
@@ -87,16 +89,25 @@ interface Candidate {
     twitter?: string
     portfolio?: string
   }
+  resumeUrl?: string
+  matchScoreBreakdown?: {
+    skillsMatch?: number
+    experienceMatch?: number
+    educationMatch?: number
+    locationMatch?: number
+    overallFit?: number
+  }
   email: string
   phone?: string
   yearsInAI?: number
   status: "new" | "contacted" | "interviewing" | "hired" | "rejected"
+  swipeDirection?: "left" | "right"
 }
 
 const mockCandidates: Candidate[] = []
 
 export function EnhancedHireAIPlatform() {
-  const { isAuthenticated, isGuestMode, logout, messageCount, incrementMessageCount, hasReachedMessageLimit } =
+  const { isAuthenticated, isGuestMode, logout, messageCount, incrementMessageCount, hasReachedMessageLimit, user } =
     useAuth()
   const [activeTab, setActiveTab] = useState("peoplegpt")
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -119,6 +130,7 @@ export function EnhancedHireAIPlatform() {
   const [showCandidates, setShowCandidates] = useState(false)
   const [searchResults, setSearchResults] = useState<Candidate[]>([])
   const [swipedCardIds, setSwipedCardIds] = useState<string[]>([])
+  const [swipedCandidates, setSwipedCandidates] = useState<Candidate[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [isSearching, setIsSearching] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
@@ -224,8 +236,15 @@ export function EnhancedHireAIPlatform() {
   const handleSwipe = (direction: "left" | "right") => {
     setSwipeDirection(direction)
 
-    // Get the current candidate ID
+    // Get the current candidate ID and candidate object
     const candidateId = searchResults[currentCandidateIndex].id
+    const currentCandidate = searchResults[currentCandidateIndex]
+    
+    // Create a copy of the candidate with the swipe direction
+    const swipedCandidate = {
+      ...currentCandidate,
+      swipeDirection: direction
+    }
     
     // Add the candidate to selected candidates if swiped right
     if (direction === "right") {
@@ -236,6 +255,9 @@ export function EnhancedHireAIPlatform() {
     
     // Add the candidate to swiped cards
     setSwipedCardIds((prev) => [...prev, candidateId])
+    
+    // Add the candidate with swipe direction to swipedCandidates
+    setSwipedCandidates((prev) => [...prev, swipedCandidate])
 
     // Add a timeout to reset the swipe direction and move to the next card
     setTimeout(() => {
@@ -243,7 +265,7 @@ export function EnhancedHireAIPlatform() {
       if (currentCandidateIndex < searchResults.length - 1) {
         setCurrentCandidateIndex(currentCandidateIndex + 1)
       }
-    }, 300) // Short delay to allow animation to complete
+    }, 600) // Longer delay to allow overlay to be visible
   }
 
   const toggleCandidateSelection = (candidateId: string) => {
@@ -285,40 +307,139 @@ export function EnhancedHireAIPlatform() {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      setUploadedFile(file)
+      // Handle file upload logic here
+      console.log('File uploaded:', file.name)
+      
+      if (isGuestMode) {
+        incrementMessageCount()
+      }
+      
+      // Show candidates if there are search results
+      if (searchResults.length > 0) {
+        setShowCandidates(true)
+      }
+    }
+  }
+  
+  const handleChatSubmit = async () => {
+    try {
+      // Chat submission logic here
+      console.log('Chat submitted')
+    } catch (error) {
+      console.error("Error:", error)
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        type: "assistant" as "assistant",
+        content: "I'm sorry, I encountered an error while processing your request. Please try again.",
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, errorMessage])
+    } finally {
+      setIsTyping(false)
     }
   }
 
   const generateOutreach = async () => {
-    if (selectedCandidates.length === 0) return
+    // Use either selected candidates or right-swiped candidates
+    const candidatesToOutreach = selectedCandidates.length > 0 ? 
+      selectedCandidates : 
+      swipedCandidates.filter(c => c.swipeDirection === "right").map(c => c.id)
+    
+    if (candidatesToOutreach.length === 0) return
     setIsGeneratingOutreach(true)
 
     try {
       const messages: Record<string, string> = {}
       
-      // Get the selected candidates from searchResults
-      for (const candidateId of selectedCandidates) {
-        const candidate = searchResults.find((c) => c.id === candidateId)
+      // Get the candidates from searchResults or swipedCandidates
+      for (const candidateId of candidatesToOutreach) {
+        // First try to find in swipedCandidates (which has the swipe direction)
+        let candidate = swipedCandidates.find((c) => c.id === candidateId)
+        
+        // If not found, look in searchResults
+        if (!candidate) {
+          candidate = searchResults.find((c) => c.id === candidateId)
+        }
+        
         if (candidate) {
-          // Generate personalized outreach message based on candidate data
-          messages[candidateId] = `Hi ${candidate.name},
+          try {
+            // Get message type and tone from UI (or use defaults)
+            const messageTypeElement = document.querySelector('select[name="messageType"]') as HTMLSelectElement;
+            const toneElement = document.querySelector('select[name="tone"]') as HTMLSelectElement;
+            const customPromptElement = document.querySelector('textarea[name="customPrompt"]') as HTMLTextAreaElement;
+            
+            const messageType = messageTypeElement?.value || 'email';
+            const tone = toneElement?.value || 'professional';
+            const customPrompt = customPromptElement?.value || '';
+            
+            // Prepare sender info from user profile
+            const senderInfo = {
+              name: user?.name || '',
+              email: user?.email || '',
+              companyName: user?.companyName || '',
+              industrySector: user?.industrySector || '',
+              companySize: user?.companySize || '',
+              officeLocations: user?.officeLocations || [],
+              keyDepartments: user?.keyDepartments || []
+            };
+            
+            // Call our backend API to generate personalized message using Gemini AI
+            const response = await fetch('http://localhost:5003/generate-outreach', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                candidate,
+                messageType,
+                tone,
+                customPrompt,
+                senderInfo
+              }),
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+              messages[candidateId] = data.message;
+            } else {
+              // Fallback to template-based message if API fails
+              messages[candidateId] = `Hi ${candidate.name},
 
 I hope this email finds you well. I came across your impressive profile${candidate.skills?.length > 0 ? ` and was particularly drawn to your expertise in ${candidate.skills[0]}${candidate.skills.length > 1 ? ` and ${candidate.skills[1]}` : ''}` : ''}.
 
-At our company, we're building cutting-edge AI solutions, and we believe your background${candidate.title ? ` in ${candidate.title}` : ''} would be a perfect fit for our team.${candidate.skills?.length > 0 ? ` Your experience with ${candidate.skills.slice(0, Math.min(3, candidate.skills.length)).join(", ")} aligns perfectly with what we're looking for.` : ''}
+${user?.companyName ? `At ${user.companyName}` : 'At our company'}${user?.industrySector ? `, a leading organization in the ${user.industrySector} sector` : ''}, we're building cutting-edge solutions${user?.keyDepartments && user.keyDepartments.length > 0 ? ` with our ${user.keyDepartments.slice(0, 2).join(' and ')} teams` : ''}. We believe your background${candidate.title ? ` in ${candidate.title}` : ''} would be a perfect fit for our team${user?.companySize ? ` of ${user.companySize} professionals` : ''}.${candidate.skills?.length > 0 ? ` Your experience with ${candidate.skills.slice(0, Math.min(3, candidate.skills.length)).join(", ")} aligns perfectly with what we're looking for.` : ''}
 
-Would you be interested in a brief conversation about an exciting opportunity? I'd love to learn more about your career goals and share how you could make a significant impact with us.
+Would you be interested in a brief conversation about an exciting opportunity? I'd love to learn more about your career goals and share how you could make a significant impact with us${user && user.officeLocations && user.officeLocations.length > 0 ? ` at our ${user.officeLocations[0]} location` : ''}.
 
 Best regards,
-[Your Name]`
+${user?.name || '[Your Name]'}
+${user?.companyName || ''}`;
+              console.error('Error from AI service:', data.error);
+            }
+          } catch (apiError) {
+            // Fallback to template-based message if API call fails
+            messages[candidateId] = `Hi ${candidate.name},
+
+I hope this email finds you well. I came across your impressive profile${candidate.skills?.length > 0 ? ` and was particularly drawn to your expertise in ${candidate.skills[0]}${candidate.skills.length > 1 ? ` and ${candidate.skills[1]}` : ''}` : ''}.
+
+${user?.companyName ? `At ${user.companyName}` : 'At our company'}${user?.industrySector ? `, a leading organization in the ${user.industrySector} sector` : ''}, we're building cutting-edge solutions${user?.keyDepartments && user.keyDepartments.length > 0 ? ` with our ${user.keyDepartments.slice(0, 2).join(' and ')} teams` : ''}. We believe your background${candidate.title ? ` in ${candidate.title}` : ''} would be a perfect fit for our team${user?.companySize ? ` of ${user.companySize} professionals` : ''}.${candidate.skills?.length > 0 ? ` Your experience with ${candidate.skills.slice(0, Math.min(3, candidate.skills.length)).join(", ")} aligns perfectly with what we're looking for.` : ''}
+
+Would you be interested in a brief conversation about an exciting opportunity? I'd love to learn more about your career goals and share how you could make a significant impact with us${user && user.officeLocations && user.officeLocations.length > 0 ? ` at our ${user.officeLocations[0]} location` : ''}.
+
+Best regards,
+${user?.name || '[Your Name]'}
+${user?.companyName || ''}`;
+            console.error('API call error:', apiError);
+          }
         }
       }
       
-      setOutreachMessages(messages)
+      setOutreachMessages(messages);
     } catch (error) {
-      console.error('Error generating outreach messages:', error)
+      console.error('Error generating outreach messages:', error);
     } finally {
-      setIsGeneratingOutreach(false)
+      setIsGeneratingOutreach(false);
     }
   }
 
@@ -366,61 +487,186 @@ Best regards,
         ))}
       </div>
 
-      {/* Enhanced Header */}
-      <header className="relative z-10 border-b border-violet-500/20 bg-black/50 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+      {/* Modern Header */}
+      <header className="relative z-10 border-b border-violet-500/30 bg-gradient-to-r from-black/90 via-violet-950/90 to-black/90 backdrop-blur-xl shadow-lg shadow-violet-900/10">
+        <div className="max-w-7xl mx-auto px-6 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="lg:hidden text-violet-300 hover:text-white"
+                className="lg:hidden text-white hover:bg-white/10 rounded-full p-2 h-9 w-9"
               >
                 <Menu className="w-5 h-5" />
               </Button>
               <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-gradient-to-r from-violet-500 via-purple-600 to-pink-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/25">
-                  <Brain className="w-7 h-7 text-white" />
+                <div className="w-10 h-10 bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/25 ring-2 ring-violet-500/20">
+                  <Brain className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-white via-violet-200 to-pink-200 bg-clip-text text-transparent">
+                  <h1 className="text-xl font-bold bg-gradient-to-r from-white via-violet-200 to-fuchsia-200 bg-clip-text text-transparent tracking-tight">
                     HireAI Platform
                   </h1>
-                  <p className="text-xs text-violet-300">Next-Generation AI Recruitment</p>
+                  <p className="text-[10px] uppercase tracking-wider text-violet-300/80 font-medium">AI-Powered Recruitment</p>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center space-x-4">
-              <Badge className="bg-violet-500/20 text-violet-300 border-violet-500/30 px-3 py-1">
-                <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse" />
-                AI Online
-              </Badge>
-              {selectedCandidates.length > 0 && (
-                <Badge className="bg-green-500/20 text-green-300 border-green-500/30 px-3 py-1">
-                  {selectedCandidates.length} Selected
-                </Badge>
-              )}
-              {!isAuthenticated && isGuestMode && messageCount > 0 && (
-                <Badge className="bg-yellow-500/20 text-yellow-300 border-yellow-500/30 px-3 py-1">
-                  {messageCount}/3 Messages
-                </Badge>
-              )}
+            <div className="flex items-center space-x-3">
+              {/* Status Indicators */}
+              <div className="hidden md:flex items-center space-x-2">
+                <div className="flex items-center space-x-1 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20">
+                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                  <span className="text-xs font-medium text-emerald-300">AI Online</span>
+                </div>
+                
+                {selectedCandidates.length > 0 && (
+                  <div className="flex items-center space-x-1 bg-blue-500/10 px-2 py-1 rounded-full border border-blue-500/20">
+                    <Users className="w-3 h-3 text-blue-400" />
+                    <span className="text-xs font-medium text-blue-300">{selectedCandidates.length}</span>
+                  </div>
+                )}
+                
+                {!isAuthenticated && isGuestMode && messageCount > 0 && (
+                  <div className="flex items-center space-x-1 bg-amber-500/10 px-2 py-1 rounded-full border border-amber-500/20">
+                    <MessageSquare className="w-3 h-3 text-amber-400" />
+                    <span className="text-xs font-medium text-amber-300">{messageCount}/3</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Auth Status */}
               {isAuthenticated ? (
-                <div className="flex items-center space-x-2">
-                  <Badge className="bg-green-500/20 text-green-300 border-green-500/30 px-3 py-1">
-                    <Crown className="w-3 h-3 mr-1" />
-                    Premium
-                  </Badge>
-                  <Button variant="ghost" size="sm" className="text-violet-300 hover:text-white" onClick={logout}>
-                    Logout
-                  </Button>
+                <div className="flex items-center space-x-3">
+                  {/* Premium Badge - Only visible on larger screens */}
+                  <div className="hidden md:flex items-center space-x-1 bg-gradient-to-r from-amber-500/20 to-amber-600/20 px-2.5 py-1 rounded-full border border-amber-500/30 shadow-sm">
+                    <Crown className="w-3 h-3 text-amber-400" fill="currentColor" />
+                    <span className="text-xs font-semibold text-amber-300">Premium</span>
+                  </div>
+                  
+                  {/* Company Profile Dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="relative h-9 w-9 rounded-full bg-gradient-to-br from-violet-600/20 to-fuchsia-600/20 p-0 hover:from-violet-600/30 hover:to-fuchsia-600/30 ring-2 ring-violet-500/30 hover:ring-violet-500/50 transition-all duration-200">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="bg-gradient-to-br from-violet-700 to-fuchsia-800 text-white text-xs font-medium">
+                            {user?.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        
+                        {/* Online indicator */}
+                        <span className="absolute bottom-0 right-0 block h-2 w-2 rounded-full bg-emerald-400 ring-1 ring-white" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-80 bg-gray-900/95 backdrop-blur-xl border border-violet-500/30 text-white p-0 rounded-xl shadow-xl shadow-violet-900/20 mt-1 overflow-hidden">
+                      {/* User Profile Header */}
+                      <div className="p-5 border-b border-violet-500/20 bg-gradient-to-br from-violet-900/50 to-fuchsia-900/50">
+                        <div className="flex items-center space-x-3">
+                          <Avatar className="h-12 w-12 ring-2 ring-violet-500/30">
+                            <AvatarFallback className="bg-gradient-to-br from-violet-700 to-fuchsia-800 text-white font-medium">
+                              {user?.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-base font-semibold text-white">{user?.name}</p>
+                            <p className="text-xs text-violet-300">{user?.email}</p>
+                            <div className="flex items-center mt-1 space-x-1">
+                              <div className="flex items-center space-x-0.5 bg-amber-500/20 px-1.5 py-0.5 rounded-full">
+                                <Crown className="w-2.5 h-2.5 text-amber-400" fill="currentColor" />
+                                <span className="text-[10px] font-medium text-amber-300">Premium</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Company Information */}
+                      <div className="p-4">
+                        <h3 className="text-sm font-semibold text-white flex items-center mb-3">
+                          <Briefcase className="w-3.5 h-3.5 mr-1.5 text-violet-400" />
+                          <span className="bg-gradient-to-r from-violet-200 to-fuchsia-200 bg-clip-text text-transparent">Company Profile</span>
+                        </h3>
+                        
+                        {user?.companyName ? (
+                          <div className="space-y-4">
+                            <div className="bg-white/5 rounded-lg p-3 border border-violet-500/20">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="text-lg font-semibold text-white">{user.companyName}</p>
+                                  <p className="text-sm text-violet-300">{user.industrySector || 'Industry not specified'}</p>
+                                </div>
+                                <Badge className="bg-violet-500/20 text-violet-200 border-violet-500/30">
+                                  {user.companySize ? `${user.companySize} employees` : 'Size not specified'}
+                                </Badge>
+                              </div>
+                            </div>
+                            
+                            {user.officeLocations && user.officeLocations.length > 0 && (
+                              <div>
+                                <p className="text-xs uppercase tracking-wider text-violet-400 font-medium mb-2 flex items-center">
+                                  <MapPin className="w-3 h-3 mr-1" /> Locations
+                                </p>
+                                <div className="flex flex-wrap gap-1.5 mt-1">
+                                  {user.officeLocations.map((location, i) => (
+                                    <Badge key={i} variant="outline" className="text-xs bg-violet-500/10 hover:bg-violet-500/20 text-violet-200 border-violet-500/30 transition-colors duration-200">
+                                      {location}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {user.keyDepartments && user.keyDepartments.length > 0 && (
+                              <div>
+                                <p className="text-xs uppercase tracking-wider text-violet-400 font-medium mb-2 flex items-center">
+                                  <Users className="w-3 h-3 mr-1" /> Departments
+                                </p>
+                                <div className="flex flex-wrap gap-1.5 mt-1">
+                                  {user.keyDepartments.map((dept, i) => (
+                                    <Badge key={i} variant="outline" className="text-xs bg-fuchsia-500/10 hover:bg-fuchsia-500/20 text-fuchsia-200 border-fuchsia-500/30 transition-colors duration-200">
+                                      {dept}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="bg-violet-500/10 rounded-lg p-4 text-center border border-violet-500/20">
+                            <p className="text-sm text-violet-300 mb-2">No company information available</p>
+                            <Button variant="outline" size="sm" className="text-xs border-violet-500/30 text-violet-300 hover:bg-violet-500/20 hover:text-white">
+                              Complete Profile
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <DropdownMenuSeparator className="bg-violet-500/20" />
+                      
+                      <div className="p-2">
+                        <DropdownMenuItem asChild className="cursor-pointer focus:bg-violet-600/20 focus:text-white">
+                          <Button variant="ghost" size="sm" className="w-full justify-start text-violet-300 hover:text-white hover:bg-violet-500/20 rounded-md transition-colors duration-200" onClick={logout}>
+                            <span className="flex items-center">
+                              <X className="w-4 h-4 mr-2" />
+                              Sign Out
+                            </span>
+                          </Button>
+                        </DropdownMenuItem>
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               ) : isGuestMode ? (
-                <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30 px-3 py-1">Guest Mode</Badge>
+                <div className="flex items-center space-x-1 bg-blue-500/10 px-2.5 py-1 rounded-full border border-blue-500/20">
+                  <User className="w-3 h-3 text-blue-400" />
+                  <span className="text-xs font-medium text-blue-300">Guest</span>
+                </div>
               ) : (
-                <Badge className="bg-red-500/20 text-red-300 border-red-500/30 px-3 py-1">Not Logged In</Badge>
+                <div className="flex items-center space-x-1 bg-red-500/10 px-2.5 py-1 rounded-full border border-red-500/20">
+                  <X className="w-3 h-3 text-red-400" />
+                  <span className="text-xs font-medium text-red-300">Not Logged In</span>
+                </div>
               )}
             </div>
           </div>
@@ -590,6 +836,8 @@ Best regards,
                     generateOutreach={generateOutreach}
                     isGeneratingOutreach={isGeneratingOutreach}
                     swipedCardIds={swipedCardIds}
+                    swipedCandidates={swipedCandidates}
+                    setSwipedCandidates={setSwipedCandidates}
                     isAuthenticated={isAuthenticated}
                     isGuestMode={isGuestMode}
                   />
@@ -632,7 +880,12 @@ Best regards,
 
                   {/* AI Ranking Tab */}
                   <TabsContent value="ranking">
-                    <AIRankingTab candidates={mockCandidates} selectedCandidates={selectedCandidates} />
+                    <AIRankingTab 
+                      candidates={mockCandidates} 
+                      selectedCandidates={selectedCandidates} 
+                      setSelectedCandidates={setSelectedCandidates}
+                      setActiveTab={setActiveTab}
+                    />
                   </TabsContent>
 
                   {/* Web Enrichment Tab */}
@@ -644,10 +897,11 @@ Best regards,
                   <TabsContent value="outreach">
                     <OutreachGeneratorTab
                       selectedCandidates={selectedCandidates}
-                      candidates={mockCandidates}
+                      candidates={searchResults}
                       generateOutreach={generateOutreach}
                       isGeneratingOutreach={isGeneratingOutreach}
                       outreachMessages={outreachMessages}
+                      swipedCandidates={swipedCandidates}
                     />
                   </TabsContent>
 
@@ -915,6 +1169,8 @@ function CandidateResults({
   isAuthenticated,
   isGuestMode,
   swipedCardIds,
+  swipedCandidates,
+  setSwipedCandidates,
 }: any) {
   return (
     <div>
@@ -964,6 +1220,37 @@ function CandidateResults({
                 {/* Memoize the filtered candidates to prevent unnecessary re-renders */}
                 {useMemo(() => {
                   const filteredCandidates = searchResults.filter((candidate: Candidate) => !swipedCardIds.includes(candidate.id));
+                  
+                  // If all candidates have been swiped, show a message
+                  if (filteredCandidates.length === 0 && searchResults.length > 0) {
+                    return (
+                      <div className="h-full flex items-center justify-center">
+                        <div className="text-center">
+                          <CheckCircle className="w-16 h-16 text-green-500/70 mx-auto mb-4" />
+                          <h3 className="text-xl font-semibold text-white mb-2">All candidates reviewed!</h3>
+                          <p className="text-violet-300">You've reviewed all available candidates</p>
+                          <div className="mt-6">
+                            <p className="text-green-400 mb-2">
+                              <span className="font-semibold">{swipedCandidates.filter((c: Candidate) => c.swipeDirection === "right").length}</span> candidates selected
+                            </p>
+                            <button 
+                              className="mt-2 px-6 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-full transition-colors duration-200"
+                              onClick={() => {
+                                // Reset swipe state to allow searching again
+                                setSwipedCardIds([]);
+                                setSwipedCandidates([]);
+                                setCurrentCandidateIndex(0);
+                                setShowCandidates(false);
+                              }}
+                            >
+                              Start New Search
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  
                   return filteredCandidates.map((candidate: Candidate, index: number) => (
                     <SwipeCardComponent
                       key={candidate.id}
@@ -974,27 +1261,28 @@ function CandidateResults({
                       onSwipe={handleSwipe}
                     />
                   ));
-                }, [searchResults, swipedCardIds, swipeDirection])
+                }, [searchResults, swipedCardIds, swipeDirection, swipedCandidates])
                 }
-                {/* Fixed positioning for swipe buttons - moved outside card content for better placement */}
-                <div className="absolute bottom-8 left-0 right-0 flex justify-center space-x-6 z-50">
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="rounded-full w-16 h-16 bg-red-500/10 border-red-500/30 text-red-500 hover:bg-red-500/20 hover:text-red-400 shadow-lg"
-                    onClick={() => handleSwipe("left")}
-                  >
-                    <X className="w-7 h-7" />
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="rounded-full w-16 h-16 bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20 hover:text-green-400 shadow-lg"
-                    onClick={() => handleSwipe("right")}
-                  >
-                    <Check className="w-7 h-7" />
-                  </Button>
-                </div>
+                {/* Single set of swipe buttons for the entire card stack - only show if there are candidates to swipe */}
+                {searchResults.filter((candidate: Candidate) => !swipedCardIds.includes(candidate.id)).length > 0 && (
+                  <div className="absolute -bottom-24 left-0 right-0 flex justify-center space-x-8 z-50">
+                    {/* Left Swipe Circle */}
+                    <div 
+                      className="rounded-full bg-red-500/80 p-6 cursor-pointer hover:bg-red-500 transition-colors duration-200 shadow-lg"
+                      onClick={() => handleSwipe("left")}
+                    >
+                      <X className="w-10 h-10 text-white" strokeWidth={3} />
+                    </div>
+                    
+                    {/* Right Swipe Circle */}
+                    <div 
+                      className="rounded-full bg-green-500/80 p-6 cursor-pointer hover:bg-green-500 transition-colors duration-200 shadow-lg"
+                      onClick={() => handleSwipe("right")}
+                    >
+                      <Check className="w-10 h-10 text-white" strokeWidth={3} />
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="h-full flex items-center justify-center">
@@ -1040,6 +1328,8 @@ function SwipeCardComponent({
   onSwipe: (direction: "left" | "right") => void
 }) {
   const [dragX, setDragX] = useState(0)
+  const [showModal, setShowModal] = useState(false)
+  const [swipeOverlay, setSwipeOverlay] = useState<"left" | "right" | null>(null)
 
   // Memoize these calculations to reduce re-renders
   const rotation = useMemo(() => {
@@ -1057,6 +1347,19 @@ function SwipeCardComponent({
     if (!isCurrent) return 0.95 - (zIndex - 1) * 0.05
     return 1
   }, [isCurrent, zIndex])
+  
+  // Calculate overlay opacity based on drag position or direction prop
+  const leftOverlayOpacity = useMemo(() => {
+    if (direction === "left" && isCurrent) return 0.8
+    if (dragX < 0) return Math.min(Math.abs(dragX) / 200, 0.8)
+    return 0
+  }, [dragX, direction, isCurrent])
+  
+  const rightOverlayOpacity = useMemo(() => {
+    if (direction === "right" && isCurrent) return 0.8
+    if (dragX > 0) return Math.min(dragX / 200, 0.8)
+    return 0
+  }, [dragX, direction, isCurrent])
 
   // Memoize animation values to prevent unnecessary re-renders
   const animationValues = useMemo(() => ({
@@ -1067,104 +1370,204 @@ function SwipeCardComponent({
   }), [direction, dragX, rotation, opacity, scale])
 
   return (
-    <motion.div
-      className="absolute inset-0 cursor-grab active:cursor-grabbing"
-      style={{ 
-        zIndex,
-        willChange: "transform", // Hardware acceleration hint
-      }}
-      drag={isCurrent ? "x" : false}
-      dragConstraints={{ left: 0, right: 0 }}
-      onDrag={(_, info) => setDragX(info.offset.x)}
-      onDragEnd={(_, info) => {
-        const threshold = 100
-        if (Math.abs(info.offset.x) > threshold) {
-          onSwipe(info.offset.x > 0 ? "right" : "left")
-        }
-        setDragX(0)
-      }}
-      animate={animationValues}
-      transition={{ 
-        type: "spring", 
-        stiffness: 300, 
-        damping: 30,
-        translateX: { type: "spring", stiffness: 300, damping: 30 },
-        rotate: { type: "spring", stiffness: 300, damping: 30 },
-        scale: { type: "spring", stiffness: 300, damping: 30 },
-      }}
-    >
-      <Card className="h-full bg-gradient-to-b from-gray-900/90 to-black/90 border-violet-500/20 backdrop-blur-xl shadow-2xl shadow-violet-500/10 overflow-hidden">
-        <CardContent className="p-0 h-full flex flex-col">
-          {/* Header */}
-          <div className="relative h-48 bg-gradient-to-br from-violet-600/20 via-purple-600/20 to-pink-600/20 overflow-hidden">
-            <div className="absolute inset-0 bg-black/20" />
-            <div className="absolute top-4 right-4 z-10">
-              <div className="flex items-center bg-yellow-500/20 backdrop-blur-sm px-3 py-1 rounded-full border border-yellow-500/30">
-                <Star className="w-4 h-4 text-yellow-400 mr-1" fill="currentColor" />
-                <span className="text-sm font-bold text-yellow-300">{candidate.score}</span>
-              </div>
+    <>
+      {showModal && <CandidateDetailModal candidate={candidate} isOpen={showModal} onClose={() => setShowModal(false)} />}
+      <motion.div
+        className="absolute inset-0 cursor-grab active:cursor-grabbing"
+        style={{ 
+          zIndex,
+          willChange: "transform, opacity", // Hardware acceleration hint
+        }}
+        drag={isCurrent ? "x" : false}
+        dragElastic={0.7} // Makes the drag feel more responsive
+        dragConstraints={{ left: 0, right: 0 }}
+        onDrag={(_, info) => {
+          setDragX(info.offset.x)
+          // Show swipe overlay while dragging
+          if (info.offset.x < -50) {
+            setSwipeOverlay("left")
+          } else if (info.offset.x > 50) {
+            setSwipeOverlay("right")
+          } else {
+            setSwipeOverlay(null)
+          }
+        }}
+        onDragEnd={(_, info) => {
+          const threshold = 80 // Lower threshold for easier swiping
+          if (Math.abs(info.offset.x) > threshold) {
+            const direction = info.offset.x > 0 ? "right" : "left"
+            // Set overlay for visual feedback
+            setSwipeOverlay(direction)
+            // Delay the actual swipe to allow overlay to be visible
+            setTimeout(() => {
+              onSwipe(direction)
+              setSwipeOverlay(null)
+            }, 200)
+          } else {
+            setDragX(0)
+            setSwipeOverlay(null)
+          }
+        }}
+        animate={animationValues}
+        transition={{ 
+          type: "spring", 
+          stiffness: 400, // Increased stiffness for snappier animation
+          damping: 25, // Reduced damping for faster animation
+          mass: 0.8, // Lower mass for quicker response
+          velocity: 2, // Initial velocity for more responsive feel
+        }}
+      >
+        <Card className="h-full bg-gradient-to-b from-gray-900/90 to-black/90 border-violet-500/20 backdrop-blur-xl shadow-2xl shadow-violet-500/10 overflow-hidden relative">
+          {/* Swipe Left Overlay - Red X */}
+          <div 
+            className="absolute inset-0 flex items-center justify-center bg-red-500/30 backdrop-blur-sm z-10 pointer-events-none transition-opacity duration-200"
+            style={{ 
+              opacity: swipeOverlay === "left" || direction === "left" ? 0.9 : leftOverlayOpacity,
+              display: (swipeOverlay === "left" || direction === "left" || leftOverlayOpacity > 0) ? 'flex' : 'none'
+            }}
+          >
+            <div className="rounded-full bg-red-500/80 p-6">
+              <X className="w-16 h-16 text-white" strokeWidth={3} />
             </div>
-            <div className="absolute bottom-4 left-4 right-4 z-10">
-              <div className="flex items-center space-x-3">
-                <Avatar className="w-16 h-16 border-2 border-white/20">
-                  <AvatarImage src={candidate.avatar || "/placeholder.svg"} />
-                  <AvatarFallback className="bg-violet-600 text-white">
-                    {candidate.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-xl font-bold text-white truncate">{candidate.name}</h3>
-                  <p className="text-violet-200 text-sm truncate">{candidate.title}</p>
-                  <p className="text-violet-300/80 text-xs truncate">{candidate.company}</p>
+            <span className="absolute bottom-10 text-white text-xl font-bold">REJECT</span>
+          </div>
+          
+          {/* Swipe Right Overlay - Green Check */}
+          <div 
+            className="absolute inset-0 flex items-center justify-center bg-green-500/30 backdrop-blur-sm z-10 pointer-events-none transition-opacity duration-200"
+            style={{ 
+              opacity: swipeOverlay === "right" || direction === "right" ? 0.9 : rightOverlayOpacity,
+              display: (swipeOverlay === "right" || direction === "right" || rightOverlayOpacity > 0) ? 'flex' : 'none'
+            }}
+          >
+            <div className="rounded-full bg-green-500/80 p-6">
+              <Check className="w-16 h-16 text-white" strokeWidth={3} />
+            </div>
+            <span className="absolute bottom-10 text-white text-xl font-bold">ACCEPT</span>
+          </div>
+          
+          <CardContent className="p-0 h-full flex flex-col">
+            {/* Header */}
+            <div className="relative h-48 bg-gradient-to-br from-violet-600/20 via-purple-600/20 to-pink-600/20 overflow-hidden">
+              <div className="absolute inset-0 bg-black/20" />
+              <div className="absolute top-4 right-4 z-10">
+                <div className="flex items-center bg-yellow-500/20 backdrop-blur-sm px-3 py-1 rounded-full border border-yellow-500/30">
+                  <Star className="w-4 h-4 text-yellow-400 mr-1" fill="currentColor" />
+                  <span className="text-sm font-bold text-yellow-300">{candidate.score}</span>
+                </div>
+              </div>
+              <div className="absolute bottom-4 left-4 right-4 z-10">
+                <div className="flex items-center space-x-3">
+                  <Avatar className="w-16 h-16 border-2 border-white/20">
+                    <AvatarImage src={candidate.avatar || "/placeholder.svg"} />
+                    <AvatarFallback className="bg-violet-600 text-white">
+                      {candidate.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-xl font-bold text-white truncate">{candidate.name}</h3>
+                    <p className="text-violet-200 text-sm truncate">{candidate.title}</p>
+                    <p className="text-violet-300/80 text-xs truncate">{candidate.company}</p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Content */}
-          <div className="flex-1 p-6 space-y-4 overflow-y-auto">
-            {/* Quick Stats */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="text-center p-3 bg-violet-500/10 rounded-lg border border-violet-500/20">
-                <Briefcase className="w-5 h-5 text-violet-400 mx-auto mb-1" />
-                <div className="text-lg font-bold text-white">{candidate.experience}</div>
-                <div className="text-xs text-violet-300">Years</div>
+            {/* Content */}
+            <div className="flex-1 p-6 space-y-4 overflow-y-auto">
+              {/* Quick Stats */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="text-center p-3 bg-violet-500/10 rounded-lg border border-violet-500/20">
+                  <Briefcase className="w-5 h-5 text-violet-400 mx-auto mb-1" />
+                  <div className="text-lg font-bold text-white">{candidate.experience}</div>
+                  <div className="text-xs text-violet-300">Years</div>
+                </div>
+                <div className="text-center p-3 bg-violet-500/10 rounded-lg border border-violet-500/20">
+                  <Code className="w-5 h-5 text-green-400 mx-auto mb-1" />
+                  <div className="text-lg font-bold text-white">{candidate.githubStars || 0}</div>
+                  <div className="text-xs text-violet-300">Stars</div>
+                </div>
+                <div className="text-center p-3 bg-violet-500/10 rounded-lg border border-violet-500/20">
+                  <Award className="w-5 h-5 text-purple-400 mx-auto mb-1" />
+                  <div className="text-lg font-bold text-white">{candidate.publications || 0}</div>
+                  <div className="text-xs text-violet-300">Papers</div>
+                </div>
               </div>
-              <div className="text-center p-3 bg-violet-500/10 rounded-lg border border-violet-500/20">
-                <Code className="w-5 h-5 text-green-400 mx-auto mb-1" />
-                <div className="text-lg font-bold text-white">{candidate.githubStars || 0}</div>
-                <div className="text-xs text-violet-300">Stars</div>
-              </div>
-              <div className="text-center p-3 bg-violet-500/10 rounded-lg border border-violet-500/20">
-                <Award className="w-5 h-5 text-purple-400 mx-auto mb-1" />
-                <div className="text-lg font-bold text-white">{candidate.publications || 0}</div>
-                <div className="text-xs text-violet-300">Papers</div>
-              </div>
-            </div>
+              
+              {/* Match Score Breakdown */}
+              {candidate.matchScoreBreakdown && (
+                <div className="p-4 bg-violet-500/10 rounded-lg border border-violet-500/20">
+                  <h4 className="text-sm font-semibold text-white mb-2">Match Score Breakdown</h4>
+                  <div className="space-y-2">
+                    {candidate.matchScoreBreakdown.skillsMatch !== undefined && (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-violet-200">Skills Match</span>
+                          <span className="text-xs font-medium text-white">{candidate.matchScoreBreakdown.skillsMatch}%</span>
+                        </div>
+                        <div className="w-full bg-gray-700 rounded-full h-1.5">
+                          <div 
+                            className="bg-violet-500 h-1.5 rounded-full" 
+                            style={{ width: `${candidate.matchScoreBreakdown.skillsMatch}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
+                    {candidate.matchScoreBreakdown.experienceMatch !== undefined && (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-violet-200">Experience Match</span>
+                          <span className="text-xs font-medium text-white">{candidate.matchScoreBreakdown.experienceMatch}%</span>
+                        </div>
+                        <div className="w-full bg-gray-700 rounded-full h-1.5">
+                          <div 
+                            className="bg-green-500 h-1.5 rounded-full" 
+                            style={{ width: `${candidate.matchScoreBreakdown.experienceMatch}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
+                    {candidate.matchScoreBreakdown.overallFit !== undefined && (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-violet-200">Overall Fit</span>
+                          <span className="text-xs font-medium text-white">{candidate.matchScoreBreakdown.overallFit}%</span>
+                        </div>
+                        <div className="w-full bg-gray-700 rounded-full h-1.5">
+                          <div 
+                            className="bg-purple-500 h-1.5 rounded-full" 
+                            style={{ width: `${candidate.matchScoreBreakdown.overallFit}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
-            {/* Location & Availability */}
-            <div className="space-y-2">
-              <div className="flex items-center text-sm text-violet-200">
-                <MapPin className="w-4 h-4 mr-2 text-violet-400" />
-                {candidate.location}
+              {/* Location & Availability */}
+              <div className="space-y-2">
+                <div className="flex items-center text-sm text-violet-200">
+                  <MapPin className="w-4 h-4 mr-2 text-violet-400" />
+                  {candidate.location}
+                </div>
+                <div className="flex items-center text-sm text-violet-200">
+                  <Calendar className="w-4 h-4 mr-2 text-violet-400" />
+                  {candidate.availability || 'Available now'}
+                </div>
+                <div className="flex items-center text-sm text-violet-200">
+                  <DollarSign className="w-4 h-4 mr-2 text-violet-400" />
+                  {candidate.salary || 'Salary negotiable'}
+                </div>
               </div>
-              <div className="flex items-center text-sm text-violet-200">
-                <Calendar className="w-4 h-4 mr-2 text-violet-400" />
-                {candidate.availability || 'Available now'}
-              </div>
-              <div className="flex items-center text-sm text-violet-200">
-                <DollarSign className="w-4 h-4 mr-2 text-violet-400" />
-                {candidate.salary || 'Salary negotiable'}
-              </div>
-            </div>
 
             {/* Skills */}
             <div>
-              <h4 className="text-sm font-medium text-violet-300 mb-2">Top Skills</h4>
-              <div className="flex flex-wrap gap-2">
+              <h4 className="text-sm font-semibold text-white mb-2">Top Skills</h4>
+              <div className="flex flex-wrap gap-1">
                 {candidate.skills?.slice(0, 5).map((skill, i) => (
                   <Badge key={i} className="bg-violet-500/20 text-violet-200 border-violet-500/30">
                     {skill}
@@ -1175,34 +1578,85 @@ function SwipeCardComponent({
 
             {/* Summary */}
             <div>
-              <h4 className="text-sm font-medium text-violet-300 mb-2">Summary</h4>
+              <h4 className="text-sm font-semibold text-white mb-2">Summary</h4>
               <p className="text-sm text-violet-100">{candidate.summary}</p>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-violet-500/20 flex justify-between items-center">
-            <div className="flex space-x-2">
-              {candidate.socialLinks?.github && (
-                <Button size="sm" variant="ghost" className="text-violet-400 hover:text-white p-1">
+          <div className="p-4 border-t border-violet-500/20 flex flex-col space-y-4">
+            <div className="flex justify-between items-center">
+              <div className="flex space-x-2">
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="text-violet-400 hover:text-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Base URL will be replaced with actual URL from database later
+                    window.open('https://github.com', '_blank');
+                  }}
+                >
                   <Github className="w-4 h-4" />
                 </Button>
-              )}
-              {candidate.socialLinks?.linkedin && (
-                <Button size="sm" variant="ghost" className="text-violet-400 hover:text-white p-1">
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="text-violet-400 hover:text-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Base URL will be replaced with actual URL from database later
+                    window.open('https://linkedin.com', '_blank');
+                  }}
+                >
                   <Linkedin className="w-4 h-4" />
                 </Button>
-              )}
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="text-violet-400 hover:text-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Base URL will be replaced with actual URL from database later
+                    window.open('#', '_blank');
+                  }}
+                >
+                  <Globe className="w-4 h-4" />
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="text-violet-400 hover:text-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Base URL will be replaced with actual URL from database later
+                    window.open('#', '_blank');
+                  }}
+                >
+                  <FileText className="w-4 h-4" />
+                </Button>
+              </div>
+              <div>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="border-violet-500/30 text-violet-300 hover:text-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowModal(true);
+                  }}
+                >
+                  <Eye className="w-4 h-4 mr-1" /> View More
+                </Button>
+              </div>
             </div>
-
-            <div className="flex items-center text-xs text-violet-300">
-              <Clock className="w-3 h-3 mr-1" />
-              Last active: {candidate.lastActive || 'Recently'}
-            </div>
+            
+            {/* Removed individual swipe circles from each card */}
           </div>
         </CardContent>
       </Card>
     </motion.div>
+    </>
   )
 }
 
@@ -1393,24 +1847,7 @@ function BrowseCandidatesTab({ candidates, selectedCandidates, toggleCandidateSe
             )
           })}
 
-          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-6">
-            <Button
-              size="lg"
-              variant="outline"
-              onClick={() => handleSwipe("left")}
-              className="w-16 h-16 rounded-full border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:scale-110 transition-all"
-            >
-              <XCircle className="w-8 h-8" />
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              onClick={() => handleSwipe("right")}
-              className="w-16 h-16 rounded-full border-green-500/30 bg-green-500/10 text-green-400 hover:bg-green-500/20 hover:scale-110 transition-all"
-            >
-              <CheckCircle className="w-8 h-8" />
-            </Button>
-          </div>
+
 
           <div className="absolute top-6 left-1/2 transform -translate-x-1/2">
             <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-full border border-violet-500/30">
@@ -1557,128 +1994,325 @@ function ResumeParserTab({ uploadedFile, handleFileUpload, fileInputRef }: any) 
 }
 
 // AI Ranking Tab - Complete Implementation
-function AIRankingTab({ candidates, selectedCandidates }: any) {
-  const [sortBy, setSortBy] = useState("score")
-  const [filterBy, setFilterBy] = useState("all")
+function AIRankingTab({ candidates, selectedCandidates, setSelectedCandidates, setActiveTab }: any) {
+  const [sector, setSector] = useState("tech")
+  const [minExperience, setMinExperience] = useState(0)
+  const [skills, setSkills] = useState<string[]>([])
+  const [currentSkill, setCurrentSkill] = useState("")
+  const [rankedCandidates, setRankedCandidates] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [sortOption, setSortOption] = useState("score")
+  const [showModal, setShowModal] = useState(false)
+  const [selectedCandidate, setSelectedCandidate] = useState<any>(null)
 
-  const sortedCandidates = [...candidates].sort((a, b) => {
-    if (sortBy === "score") return b.score - a.score
-    if (sortBy === "experience") return b.experience - a.experience
-    if (sortBy === "name") return a.name.localeCompare(b.name)
+  const handleAddSkill = () => {
+    if (currentSkill && !skills.includes(currentSkill)) {
+      setSkills([...skills, currentSkill])
+      setCurrentSkill("")
+    }
+  }
+
+  const handleRemoveSkill = (skillToRemove: string) => {
+    setSkills(skills.filter(skill => skill !== skillToRemove))
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleAddSkill()
+    }
+  }
+
+  const fetchRankedCandidates = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await fetch('/api/sector-ranking', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sector, min_experience: minExperience, skills, top_k: 20 }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`)
+      }
+
+      const data = await response.json()
+      setRankedCandidates(data.candidates || [])
+    } catch (err: any) {
+      setError(`Failed to fetch candidates: ${err.message}`)
+      console.error("Error fetching ranked candidates:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchRankedCandidates()
+  }, [])
+
+  const handleSearch = () => {
+    fetchRankedCandidates()
+  }
+
+  const sortedCandidates = [...rankedCandidates].sort((a, b) => {
+    if (sortOption === "score") {
+      return b.score - a.score
+    } else if (sortOption === "experience") {
+      return b.experience - a.experience
+    } else if (sortOption === "sectorMatch") {
+      return b.matchScoreBreakdown.sectorMatch - a.matchScoreBreakdown.sectorMatch
+    }
     return 0
   })
 
-  const filteredCandidates = sortedCandidates.filter((candidate) => {
-    if (filterBy === "all") return true
-    if (filterBy === "high") return candidate.score >= 90
-    if (filterBy === "medium") return candidate.score >= 70 && candidate.score < 90
-    if (filterBy === "low") return candidate.score < 70
-    return true
-  })
-
   return (
-    <div className="space-y-8">
-      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="text-center">
-        <h2 className="text-4xl font-bold mb-4 bg-gradient-to-r from-white via-violet-200 to-purple-200 bg-clip-text text-transparent">
-          AI-Powered Ranking
-        </h2>
-        <p className="text-xl text-violet-200/80">Intelligent candidate scoring and ranking system</p>
-      </motion.div>
+    <>
+      <div className="flex flex-col space-y-4 mb-6">
+        <div className="flex flex-col md:flex-row md:space-x-4 space-y-4 md:space-y-0">
+          <div className="flex flex-col space-y-2">
+            <label htmlFor="sector" className="text-sm font-medium">Sector</label>
+            <select
+              id="sector"
+              value={sector}
+              onChange={(e) => setSector(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-2"
+            >
+              <option value="tech">Technology</option>
+              <option value="finance">Finance</option>
+              <option value="healthcare">Healthcare</option>
+              <option value="education">Education</option>
+              <option value="retail">Retail</option>
+              <option value="manufacturing">Manufacturing</option>
+              <option value="media">Media</option>
+              <option value="energy">Energy</option>
+              <option value="transportation">Transportation</option>
+            </select>
+          </div>
 
-      {/* Controls */}
-      <div className="flex items-center justify-between">
-        <div className="flex space-x-4">
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="px-4 py-2 bg-gray-900/50 border border-violet-500/30 rounded-lg text-white"
-          >
-            <option value="score">Sort by Score</option>
-            <option value="experience">Sort by Experience</option>
-            <option value="name">Sort by Name</option>
-          </select>
+          <div className="flex flex-col space-y-2">
+            <label htmlFor="experience" className="text-sm font-medium">Minimum Experience (years)</label>
+            <input
+              id="experience"
+              type="number"
+              min="0"
+              value={minExperience}
+              onChange={(e) => setMinExperience(parseInt(e.target.value) || 0)}
+              className="border border-gray-300 rounded-md px-3 py-2"
+            />
+          </div>
 
-          <select
-            value={filterBy}
-            onChange={(e) => setFilterBy(e.target.value)}
-            className="px-4 py-2 bg-gray-900/50 border border-violet-500/30 rounded-lg text-white"
-          >
-            <option value="all">All Candidates</option>
-            <option value="high">High Score (90+)</option>
-            <option value="medium">Medium Score (70-89)</option>
-            <option value="low">Low Score (&lt;70)</option>
-          </select>
+          <div className="flex flex-col space-y-2">
+            <label htmlFor="skills" className="text-sm font-medium">Required Skills</label>
+            <div className="flex">
+              <input
+                id="skills"
+                type="text"
+                value={currentSkill}
+                onChange={(e) => setCurrentSkill(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Add a skill"
+                className="border border-gray-300 rounded-l-md px-3 py-2 flex-1"
+              />
+              <button
+                onClick={handleAddSkill}
+                className="bg-blue-500 text-white px-3 py-2 rounded-r-md"
+              >
+                Add
+              </button>
+            </div>
+            {skills.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {skills.map((skill) => (
+                  <div key={skill} className="bg-blue-100 text-blue-800 px-2 py-1 rounded-md flex items-center">
+                    <span>{skill}</span>
+                    <button
+                      onClick={() => handleRemoveSkill(skill)}
+                      className="ml-2 text-blue-500 hover:text-blue-700"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        <Badge className="bg-violet-500/20 text-violet-300 border-violet-500/30 px-3 py-1">
-          {filteredCandidates.length} candidates
-        </Badge>
+        <div className="flex justify-between items-center">
+          <button
+            onClick={handleSearch}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+          >
+            Search Candidates
+          </button>
+
+          <div className="flex items-center space-x-2">
+            <label htmlFor="sort" className="text-sm font-medium">Sort by:</label>
+            <select
+              id="sort"
+              value={sortOption}
+              onChange={(e) => setSortOption(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-2"
+            >
+              <option value="score">Overall Score</option>
+              <option value="experience">Experience</option>
+              <option value="sectorMatch">Sector Match</option>
+            </select>
+          </div>
+        </div>
       </div>
 
-      {/* Ranking List */}
-      <div className="space-y-4">
-        {filteredCandidates.map((candidate, index) => (
-          <Card key={candidate.id} className="bg-black/40 border-violet-500/20 backdrop-blur-xl">
-            <CardContent className="p-6">
-              <div className="flex items-center space-x-6">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-violet-400">#{index + 1}</div>
-                  <div className="text-sm text-violet-300">Rank</div>
-                </div>
+      {loading && <div className="text-center py-4">Loading candidates...</div>}
+      {error && <div className="text-red-500 py-4">{error}</div>}
+      {!loading && !error && sortedCandidates.length === 0 && (
+        <div className="text-center py-4">No candidates found matching your criteria.</div>
+      )}
 
-                <Avatar className="w-16 h-16">
-                  <img src={candidate.avatar || "/placeholder.svg"} alt={candidate.name} />
-                </Avatar>
+      {showModal && selectedCandidate && (
+        <CandidateDetailModal 
+          candidate={selectedCandidate} 
+          isOpen={showModal} 
+          onClose={() => setShowModal(false)} 
+        />
+      )}
 
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-white">{candidate.name}</h3>
-                  <p className="text-violet-300">
-                    {candidate.title} at {candidate.company}
-                  </p>
-                  <div className="flex items-center space-x-4 mt-2">
-                    <Badge className="bg-green-500/20 text-green-300 border-green-500/30">
-                      {candidate.score}% Match
-                    </Badge>
-                    <span className="text-sm text-violet-200">{candidate.experience} years exp</span>
-                    <span className="text-sm text-violet-200">{candidate.location}</span>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {sortedCandidates.map((candidate) => (
+          <Card key={candidate.id} className="overflow-hidden"
+            onClick={() => {
+              setSelectedCandidate(candidate);
+              setShowModal(true);
+            }}
+          >
+            <CardHeader className="pb-2">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center space-x-4">
+                  <Avatar>
+                    <AvatarImage src={candidate.avatar || "/avatars/placeholder.png"} />
+                    <AvatarFallback>{candidate.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <CardTitle className="text-lg">{candidate.name}</CardTitle>
+                    <CardDescription>{candidate.title}</CardDescription>
+                    <div className="text-sm text-muted-foreground">
+                      {candidate.company} • {candidate.location}
+                    </div>
                   </div>
                 </div>
-
-                <div className="text-right">
-                  <div className="text-3xl font-bold text-white">{candidate.score}</div>
-                  <div className="text-sm text-violet-300">AI Score</div>
-                </div>
+                <Badge variant="outline" className="ml-2">
+                  {candidate.score}%
+                </Badge>
               </div>
-
-              <div className="mt-4 grid grid-cols-4 gap-4">
-                <div className="text-center">
-                  <div className="text-lg font-semibold text-blue-400">85</div>
-                  <div className="text-xs text-blue-300">Technical</div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="text-sm">
+                  <span className="font-medium">Experience:</span> {candidate.experience} years
                 </div>
-                <div className="text-center">
-                  <div className="text-lg font-semibold text-green-400">92</div>
-                  <div className="text-xs text-green-300">Experience</div>
+                <div className="text-sm">
+                  <span className="font-medium">Skills:</span>{" "}
+                  {candidate.skills.slice(0, 3).join(", ")}
+                  {candidate.skills.length > 3 && "..."}
                 </div>
-                <div className="text-center">
-                  <div className="text-lg font-semibold text-purple-400">78</div>
-                  <div className="text-xs text-purple-300">Culture Fit</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-semibold text-yellow-400">88</div>
-                  <div className="text-xs text-yellow-300">Communication</div>
+                <div className="space-y-1 mt-3">
+                  <div className="text-sm font-medium">Match Score Breakdown:</div>
+                  <div className="space-y-2">
+                    <div>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span>Skills Match</span>
+                        <span>{candidate.matchScoreBreakdown.skillsMatch}%</span>
+                      </div>
+                      <Progress value={candidate.matchScoreBreakdown.skillsMatch} className="h-1 bg-slate-200" />
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span>Experience Match</span>
+                        <span>{candidate.matchScoreBreakdown.experienceMatch}%</span>
+                      </div>
+                      <Progress value={candidate.matchScoreBreakdown.experienceMatch} className="h-1 bg-slate-200" />
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span>Sector Match</span>
+                        <span>{candidate.matchScoreBreakdown.sectorMatch}%</span>
+                      </div>
+                      <Progress value={candidate.matchScoreBreakdown.sectorMatch} className="h-1 bg-slate-200" />
+                    </div>
+                  </div>
                 </div>
               </div>
             </CardContent>
+            <CardFooter className="flex justify-between pt-0">
+              <div className="flex space-x-2">
+                {candidate.socialLinks?.linkedin && (
+                  <Button variant="outline" size="icon" className="h-8 w-8" asChild>
+                    <a href={candidate.socialLinks.linkedin} target="_blank" rel="noopener noreferrer">
+                      <Linkedin className="h-4 w-4" />
+                    </a>
+                  </Button>
+                )}
+                {candidate.socialLinks?.github && (
+                  <Button variant="outline" size="icon" className="h-8 w-8" asChild>
+                    <a href={candidate.socialLinks.github} target="_blank" rel="noopener noreferrer">
+                      <Github className="h-4 w-4" />
+                    </a>
+                  </Button>
+                )}
+                {candidate.resumeUrl && (
+                  <Button variant="outline" size="icon" className="h-8 w-8" asChild>
+                    <a href={candidate.resumeUrl} target="_blank" rel="noopener noreferrer">
+                      <FileText className="h-4 w-4" />
+                    </a>
+                  </Button>
+                )}
+              </div>
+              <div className="flex space-x-2">
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  className="h-8"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // Open the candidate detail modal
+                    setShowModal(true);
+                  }}
+                >
+                  <Eye className="w-3 h-3 mr-1" /> View More
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  className="h-8 bg-violet-600 hover:bg-violet-700 text-white"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // Add candidate to selected candidates if not already there
+                    if (!selectedCandidates.includes(candidate.id)) {
+                      setSelectedCandidates((prev) => [...prev, candidate.id]);
+                    }
+                    // Navigate to outreach tab
+                    setActiveTab("outreach");
+                    console.log('Generate outreach for', candidate.id);
+                  }}
+                >
+                  <MessageSquare className="w-3 h-3 mr-1" /> Generate Outreach
+                </Button>
+              </div>
+            </CardFooter>
           </Card>
         ))}
       </div>
-    </div>
+    </>
   )
 }
 
 // Web Enrichment Tab - Complete Implementation
 function WebEnrichmentTab({ candidates }: any) {
-  const [enrichmentStatus, setEnrichmentStatus] = useState<Record<string, string>>({})
+  const [enrichmentStatus, setEnrichmentStatus] = useState<{[key: string]: string}>({})
   const [isEnriching, setIsEnriching] = useState(false)
 
   const handleEnrichment = (candidateId: string) => {
@@ -1733,12 +2367,13 @@ function WebEnrichmentTab({ candidates }: any) {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                  <Avatar className="w-12 h-12">
-                    <img src={candidate.avatar || "/placeholder.svg"} alt={candidate.name} />
+                  <Avatar>
+                    <AvatarImage src={candidate.avatar || "/avatars/placeholder.png"} />
+                    <AvatarFallback>{candidate.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <h4 className="text-lg font-semibold text-white">{candidate.name}</h4>
-                    <p className="text-violet-300">{candidate.title}</p>
+                    <CardTitle className="text-lg">{candidate.name}</CardTitle>
+                    <CardDescription>{candidate.title}</CardDescription>
                   </div>
                 </div>
 
@@ -1822,12 +2457,17 @@ function OutreachGeneratorTab({
   generateOutreach,
   isGeneratingOutreach,
   outreachMessages,
+  swipedCandidates,
 }: any) {
   const [messageType, setMessageType] = useState("email")
   const [tone, setTone] = useState("professional")
   const [customPrompt, setCustomPrompt] = useState("")
 
-  const selectedCandidateData = candidates.filter((c: Candidate) => selectedCandidates.includes(c.id))
+  // Get candidates that were either explicitly selected or right-swiped
+  const rightSwipedCandidates = swipedCandidates?.filter((c: Candidate) => c.swipeDirection === "right") || []
+  const selectedCandidateData = selectedCandidates.length > 0 
+    ? candidates.filter((c: Candidate) => selectedCandidates.includes(c.id))
+    : rightSwipedCandidates
 
   return (
     <div className="space-y-8">
@@ -1896,7 +2536,7 @@ function OutreachGeneratorTab({
                 ) : (
                   <>
                     <MessageSquare className="w-4 h-4 mr-2" />
-                    Generate Messages ({selectedCandidates.length})
+                    Generate Messages ({selectedCandidateData.length})
                   </>
                 )}
               </Button>
@@ -1910,10 +2550,10 @@ function OutreachGeneratorTab({
             <CardContent className="p-6">
               <h3 className="text-xl font-semibold text-white mb-6">Generated Messages</h3>
 
-              {selectedCandidates.length === 0 ? (
+              {selectedCandidateData.length === 0 ? (
                 <div className="text-center py-12">
                   <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-400">Select candidates to generate personalized messages</p>
+                  <p className="text-gray-400">Select or right-swipe candidates to generate personalized messages</p>
                 </div>
               ) : isGeneratingOutreach ? (
                 <div className="text-center py-12">
@@ -2138,12 +2778,12 @@ function SwipeCard({ candidate, isCurrent, zIndex, direction, onSwipe, isGuestMo
       opacity: 0,
       transition: { duration: 0.5 },
     },
-  }
+  } as const
 
   const dragTransition = {
     damping: 10,
     stiffness: 200,
-  }
+  } as const
 
   const handleDrag = (event: any, info: any) => {
     if (isCurrent) {
@@ -2245,111 +2885,541 @@ function CandidateListCard({
   onToggleSelect,
   isGuestMode,
 }: CandidateListCardProps) {
+  const [showModal, setShowModal] = useState(false)
+  
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.1 }}
-      className={cn("group cursor-pointer transition-all duration-300", isSelected && "ring-2 ring-violet-500/50")}
-      onClick={onToggleSelect}
-    >
-      <Card className="bg-gray-900/50 border-violet-500/20 hover:bg-gray-900/70 hover:border-violet-500/40 transition-all duration-300 backdrop-blur-xl">
-        <CardContent className="p-6">
-          {/* Header */}
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center space-x-3">
-              <Avatar className="w-12 h-12 border-2 border-violet-500/30">
-                <AvatarImage src={candidate.avatar || "/placeholder.svg"} />
-                <AvatarFallback className="bg-violet-600 text-white">
-                  {candidate.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <h3 className="font-semibold text-white group-hover:text-violet-200 transition-colors">
-                  {candidate.name}
-                </h3>
-                <p className="text-sm text-violet-300">{candidate.title}</p>
-                <p className="text-xs text-violet-400">{candidate.company}</p>
+    <>
+      {showModal && <CandidateDetailModal candidate={candidate} isOpen={showModal} onClose={() => setShowModal(false)} />}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.1 }}
+        className={cn("group cursor-pointer transition-all duration-300", isSelected && "ring-2 ring-violet-500/50")}
+        onClick={onToggleSelect}
+      >
+        <Card className="bg-gray-900/50 border-violet-500/20 hover:bg-gray-900/70 hover:border-violet-500/40 transition-all duration-300 backdrop-blur-xl">
+          <CardContent className="p-6">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <Avatar className="w-12 h-12 border-2 border-violet-500/30">
+                  <AvatarImage src={candidate.avatar || "/placeholder.svg"} />
+                  <AvatarFallback className="bg-violet-600 text-white">
+                    {candidate.name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h3 className="font-semibold text-white group-hover:text-violet-200 transition-colors">
+                    {candidate.name}
+                  </h3>
+                  <p className="text-sm text-violet-300">{candidate.title}</p>
+                  <p className="text-xs text-violet-400">{candidate.company}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1 bg-yellow-500/20 px-2 py-1 rounded-full">
+                  <Star className="w-3 h-3 text-yellow-400" fill="currentColor" />
+                  <span className="text-xs font-medium text-yellow-300">{candidate.score}</span>
+                </div>
+                {isSelected && (
+                  <div className="w-6 h-6 bg-violet-500 rounded-full flex items-center justify-center">
+                    <CheckCircle className="w-4 h-4 text-white" />
+                  </div>
+                )}
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <div className="flex items-center space-x-1 bg-yellow-500/20 px-2 py-1 rounded-full">
-                <Star className="w-3 h-3 text-yellow-400" fill="currentColor" />
-                <span className="text-xs font-medium text-yellow-300">{candidate.score}</span>
+
+            {/* Details */}
+            <div className="space-y-2 mb-4">
+              <div className="flex items-center text-sm text-violet-200">
+                <MapPin className="w-3 h-3 mr-2 text-violet-400" />
+                {candidate.location}
               </div>
-              {isSelected && (
-                <div className="w-6 h-6 bg-violet-500 rounded-full flex items-center justify-center">
-                  <CheckCircle className="w-4 h-4 text-white" />
+              <div className="flex items-center text-sm text-violet-200">
+                <Briefcase className="w-3 h-3 mr-2 text-violet-400" />
+                {candidate.experience} years experience
+              </div>
+              <div className="flex items-center text-sm text-violet-200">
+                <DollarSign className="w-3 h-3 mr-2 text-violet-400" />
+                {candidate.salary || 'Salary negotiable'}
+              </div>
+            </div>
+
+            {/* Match Score Breakdown - Compact version */}
+            {candidate.matchScoreBreakdown && (
+              <div className="mb-4 p-3 bg-violet-500/10 rounded-lg border border-violet-500/20">
+                <h4 className="text-xs font-semibold text-white mb-2">Match Score Breakdown</h4>
+                <div className="space-y-1.5">
+                  {candidate.matchScoreBreakdown.skillsMatch !== undefined && (
+                    <div className="space-y-0.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-violet-200">Skills</span>
+                        <span className="text-xs font-medium text-white">{candidate.matchScoreBreakdown.skillsMatch}%</span>
+                      </div>
+                      <div className="w-full bg-gray-700 rounded-full h-1.5">
+                        <div 
+                          className="bg-violet-500 h-1.5 rounded-full" 
+                          style={{ width: `${candidate.matchScoreBreakdown.skillsMatch}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+                  {candidate.matchScoreBreakdown.experienceMatch !== undefined && (
+                    <div className="space-y-0.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-violet-200">Experience</span>
+                        <span className="text-xs font-medium text-white">{candidate.matchScoreBreakdown.experienceMatch}%</span>
+                      </div>
+                      <div className="w-full bg-gray-700 rounded-full h-1.5">
+                        <div 
+                          className="bg-green-500 h-1.5 rounded-full" 
+                          style={{ width: `${candidate.matchScoreBreakdown.experienceMatch}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+                  {candidate.matchScoreBreakdown.overallFit !== undefined && (
+                    <div className="space-y-0.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-violet-200">Overall Fit</span>
+                        <span className="text-xs font-medium text-white">{candidate.matchScoreBreakdown.overallFit}%</span>
+                      </div>
+                      <div className="w-full bg-gray-700 rounded-full h-1.5">
+                        <div 
+                          className="bg-purple-500 h-1.5 rounded-full" 
+                          style={{ width: `${candidate.matchScoreBreakdown.overallFit}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Summary */}
+            <p className="text-sm text-violet-100 mb-4 line-clamp-2">{candidate.summary}</p>
+
+            {/* Skills */}
+            <div className="flex flex-wrap gap-1 mb-4">
+              {candidate.skills?.slice(0, 4).map((skill, i) => (
+                <Badge key={i} className="text-xs bg-violet-500/20 text-violet-200 border-violet-500/30">
+                  {skill}
+                </Badge>
+              ))}
+              {candidate.skills?.length > 4 && (
+                <Badge className="text-xs bg-gray-700/50 text-gray-300">+{candidate.skills.length - 4}</Badge>
+              )}
+            </div>
+            
+
+
+            {/* Actions */}
+            <div className="flex items-center justify-between pt-4 border-t border-violet-500/20">
+              <div className="flex items-center space-x-2">
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="text-violet-400 hover:text-white p-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Base URL will be replaced with actual URL from database later
+                    window.open('https://github.com', '_blank');
+                  }}
+                >
+                  <Github className="w-4 h-4" />
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="text-violet-400 hover:text-white p-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Base URL will be replaced with actual URL from database later
+                    window.open('https://linkedin.com', '_blank');
+                  }}
+                >
+                  <Linkedin className="w-4 h-4" />
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="text-violet-400 hover:text-white p-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Base URL will be replaced with actual URL from database later
+                    window.open('#', '_blank');
+                  }}
+                >
+                  <FileText className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="border-violet-500/30 text-violet-300 hover:text-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowModal(true);
+                  }}
+                >
+                  <Eye className="w-4 h-4 mr-1" /> View More
+                </Button>
+                <Button 
+                  size="sm" 
+                  className="bg-violet-600 hover:bg-violet-700"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Add candidate to selected candidates if not already there
+                    if (!selectedCandidates.includes(candidate.id)) {
+                      setSelectedCandidates((prev) => [...prev, candidate.id]);
+                    }
+                    // Navigate to outreach tab
+                    setActiveTab("outreach");
+                    console.log('Generate outreach for', candidate.id);
+                  }}
+                >
+                  <MessageSquare className="w-4 h-4 mr-1" /> Outreach
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    </>
+  )
+}
+
+// Candidate Detail Modal Component
+interface CandidateDetailModalProps {
+  candidate: Candidate
+  isOpen: boolean
+  onClose: () => void
+}
+
+function CandidateDetailModal({ candidate, isOpen, onClose }: CandidateDetailModalProps) {
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose}></div>
+      <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-gray-900 border border-violet-500/30 rounded-lg shadow-xl">
+        <div className="sticky top-0 flex items-center justify-between p-4 bg-gray-900/90 backdrop-blur-sm border-b border-violet-500/20 z-10">
+          <h2 className="text-xl font-bold text-white">Candidate Profile</h2>
+          <Button variant="ghost" size="sm" onClick={onClose} className="text-violet-300 hover:text-white">
+            <X className="w-5 h-5" />
+          </Button>
+        </div>
+        
+        <div className="p-6 space-y-6">
+          {/* Header Info */}
+          <div className="flex items-start space-x-4">
+            <Avatar className="w-20 h-20 border-2 border-violet-500/30">
+              <AvatarImage src={candidate.avatar || "/placeholder.svg"} />
+              <AvatarFallback className="bg-violet-600 text-white text-xl">
+                {candidate.name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <h3 className="text-2xl font-bold text-white">{candidate.name}</h3>
+              <p className="text-lg text-violet-200">{candidate.title}</p>
+              <p className="text-violet-300">{candidate.company}</p>
+              <div className="flex items-center mt-2 space-x-3">
+                <div className="flex items-center space-x-1 bg-yellow-500/20 px-3 py-1 rounded-full">
+                  <Star className="w-4 h-4 text-yellow-400" fill="currentColor" />
+                  <span className="text-sm font-bold text-yellow-300">{candidate.score}</span>
+                </div>
+                <Badge className="bg-violet-500/20 text-violet-200 border-violet-500/30">
+                  {candidate.status}
+                </Badge>
+              </div>
+            </div>
+          </div>
+          
+          {/* Match Score Breakdown */}
+          {candidate.matchScoreBreakdown && (
+            <div className="p-4 bg-violet-500/10 rounded-lg border border-violet-500/20">
+              <h4 className="text-lg font-semibold text-white mb-3">Match Score Breakdown</h4>
+              <div className="space-y-2">
+                {candidate.matchScoreBreakdown.skillsMatch !== undefined && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-violet-200">Skills Match</span>
+                      <span className="text-sm font-medium text-white">{candidate.matchScoreBreakdown.skillsMatch}%</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div 
+                        className="bg-violet-500 h-2 rounded-full" 
+                        style={{ width: `${candidate.matchScoreBreakdown.skillsMatch}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+                {candidate.matchScoreBreakdown.experienceMatch !== undefined && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-violet-200">Experience Match</span>
+                      <span className="text-sm font-medium text-white">{candidate.matchScoreBreakdown.experienceMatch}%</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div 
+                        className="bg-green-500 h-2 rounded-full" 
+                        style={{ width: `${candidate.matchScoreBreakdown.experienceMatch}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+                {candidate.matchScoreBreakdown.educationMatch !== undefined && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-violet-200">Education Match</span>
+                      <span className="text-sm font-medium text-white">{candidate.matchScoreBreakdown.educationMatch}%</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div 
+                        className="bg-blue-500 h-2 rounded-full" 
+                        style={{ width: `${candidate.matchScoreBreakdown.educationMatch}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+                {candidate.matchScoreBreakdown.locationMatch !== undefined && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-violet-200">Location Match</span>
+                      <span className="text-sm font-medium text-white">{candidate.matchScoreBreakdown.locationMatch}%</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div 
+                        className="bg-yellow-500 h-2 rounded-full" 
+                        style={{ width: `${candidate.matchScoreBreakdown.locationMatch}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+                {candidate.matchScoreBreakdown.overallFit !== undefined && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-violet-200">Overall Fit</span>
+                      <span className="text-sm font-medium text-white">{candidate.matchScoreBreakdown.overallFit}%</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div 
+                        className="bg-purple-500 h-2 rounded-full" 
+                        style={{ width: `${candidate.matchScoreBreakdown.overallFit}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Contact & Links */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 bg-violet-500/10 rounded-lg border border-violet-500/20">
+              <h4 className="text-lg font-semibold text-white mb-3">Contact Information</h4>
+              <div className="space-y-2">
+                <div className="flex items-center text-sm text-violet-200">
+                  <MapPin className="w-4 h-4 mr-2 text-violet-400" />
+                  {candidate.location}
+                </div>
+                <div className="flex items-center text-sm text-violet-200">
+                  <Calendar className="w-4 h-4 mr-2 text-violet-400" />
+                  {candidate.availability || 'Available now'}
+                </div>
+                <div className="flex items-center text-sm text-violet-200">
+                  <DollarSign className="w-4 h-4 mr-2 text-violet-400" />
+                  {candidate.salary || 'Salary negotiable'}
+                </div>
+                <div className="flex items-center text-sm text-violet-200">
+                  <Clock className="w-4 h-4 mr-2 text-violet-400" />
+                  Last Active: {candidate.lastActive}
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-4 bg-violet-500/10 rounded-lg border border-violet-500/20">
+              <h4 className="text-lg font-semibold text-white mb-3">Professional Links</h4>
+              <div className="flex flex-wrap gap-2">
+                {/* LinkedIn Button - Always visible */}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="bg-violet-950 border-violet-700 hover:bg-violet-900 text-violet-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(candidate.socialLinks?.linkedin || 'https://linkedin.com', '_blank');
+                  }}
+                >
+                  <Linkedin className="mr-1 h-4 w-4" />
+                  LinkedIn
+                </Button>
+                
+                {/* GitHub Button - Always visible */}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="bg-violet-950 border-violet-700 hover:bg-violet-900 text-violet-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(candidate.socialLinks?.github || 'https://github.com', '_blank');
+                  }}
+                >
+                  <Github className="mr-1 h-4 w-4" />
+                  GitHub
+                </Button>
+                
+                {/* Portfolio Button - Always visible */}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="bg-violet-950 border-violet-700 hover:bg-violet-900 text-violet-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(candidate.socialLinks?.portfolio || '#', '_blank');
+                  }}
+                >
+                  <Globe className="mr-1 h-4 w-4" />
+                  Portfolio
+                </Button>
+                
+                {/* Resume Button - Always visible */}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="bg-violet-950 border-violet-700 hover:bg-violet-900 text-violet-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(candidate.resumeUrl || '#', '_blank');
+                  }}
+                >
+                  <FileText className="mr-1 h-4 w-4" />
+                  Resume
+                </Button>
+              </div>
+            </div>
+          </div>
+          
+          {/* Summary */}
+          <div>
+            <h4 className="text-lg font-semibold text-white mb-2">Summary</h4>
+            <p className="text-violet-200">{candidate.summary}</p>
+          </div>
+          
+          {/* Skills */}
+          <div>
+            <h4 className="text-lg font-semibold text-white mb-2">Skills</h4>
+            <div className="flex flex-wrap gap-2">
+              {candidate.skills?.map((skill, i) => (
+                <Badge key={i} className="bg-violet-500/20 text-violet-200 border-violet-500/30">
+                  {skill}
+                </Badge>
+              ))}
+            </div>
+          </div>
+          
+          {/* Match Score Breakdown */}
+          <div>
+            <h4 className="text-lg font-semibold text-white mb-2">Match Score Breakdown</h4>
+            <div className="space-y-3 p-4 bg-violet-500/10 rounded-lg border border-violet-500/20">
+              {candidate.matchScoreBreakdown?.skillsMatch !== undefined && (
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-violet-200">Skills Match</span>
+                    <span className="text-violet-200">{candidate.matchScoreBreakdown.skillsMatch}%</span>
+                  </div>
+                  <div className="h-2 w-full bg-violet-950 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-violet-500 rounded-full" 
+                      style={{ width: `${candidate.matchScoreBreakdown.skillsMatch}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+              {candidate.matchScoreBreakdown?.experienceMatch !== undefined && (
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-green-200">Experience Match</span>
+                    <span className="text-green-200">{candidate.matchScoreBreakdown.experienceMatch}%</span>
+                  </div>
+                  <div className="h-2 w-full bg-green-950 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-green-500 rounded-full" 
+                      style={{ width: `${candidate.matchScoreBreakdown.experienceMatch}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+              {candidate.matchScoreBreakdown?.educationMatch !== undefined && (
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-blue-200">Education Match</span>
+                    <span className="text-blue-200">{candidate.matchScoreBreakdown.educationMatch}%</span>
+                  </div>
+                  <div className="h-2 w-full bg-blue-950 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-blue-500 rounded-full" 
+                      style={{ width: `${candidate.matchScoreBreakdown.educationMatch}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+              {candidate.matchScoreBreakdown?.locationMatch !== undefined && (
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-amber-200">Location Match</span>
+                    <span className="text-amber-200">{candidate.matchScoreBreakdown.locationMatch}%</span>
+                  </div>
+                  <div className="h-2 w-full bg-amber-950 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-amber-500 rounded-full" 
+                      style={{ width: `${candidate.matchScoreBreakdown.locationMatch}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+              {candidate.matchScoreBreakdown?.overallFit !== undefined && (
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-purple-200">Overall Fit</span>
+                    <span className="text-purple-200">{candidate.matchScoreBreakdown.overallFit}%</span>
+                  </div>
+                  <div className="h-2 w-full bg-purple-950 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-purple-500 rounded-full" 
+                      style={{ width: `${candidate.matchScoreBreakdown.overallFit}%` }}
+                    ></div>
+                  </div>
                 </div>
               )}
             </div>
           </div>
-
-          {/* Details */}
-          <div className="space-y-2 mb-4">
-            <div className="flex items-center text-sm text-violet-200">
-              <MapPin className="w-3 h-3 mr-2 text-violet-400" />
-              {candidate.location}
-            </div>
-            <div className="flex items-center text-sm text-violet-200">
-              <Briefcase className="w-3 h-3 mr-2 text-violet-400" />
-              {candidate.experience} years experience
-            </div>
-            <div className="flex items-center text-sm text-violet-200">
-              <DollarSign className="w-3 h-3 mr-2 text-violet-400" />
-              {candidate.salary || 'Salary negotiable'}
-            </div>
+          
+          {/* Match Reasons */}
+          <div>
+            <h4 className="text-lg font-semibold text-white mb-2">Match Reasons</h4>
+            <ul className="list-disc list-inside text-violet-200 space-y-1">
+              {candidate.matchReasons?.map((reason, i) => (
+                <li key={i}>{reason}</li>
+              ))}
+            </ul>
           </div>
-
-          {/* Summary */}
-          <p className="text-sm text-violet-100 mb-4 line-clamp-2">{candidate.summary}</p>
-
-          {/* Skills */}
-          <div className="flex flex-wrap gap-1 mb-4">
-            {candidate.skills?.slice(0, 4).map((skill, i) => (
-              <Badge key={i} className="text-xs bg-violet-500/20 text-violet-200 border-violet-500/30">
-                {skill}
-              </Badge>
-            ))}
-            {candidate.skills?.length > 4 && (
-              <Badge className="text-xs bg-gray-700/50 text-gray-300">+{candidate.skills.length - 4}</Badge>
-            )}
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center justify-between pt-4 border-t border-violet-500/20">
-            <div className="flex items-center space-x-2">
-              {candidate.socialLinks?.github && (
-                <Button size="sm" variant="ghost" className="text-violet-400 hover:text-white p-1">
-                  <Github className="w-4 h-4" />
-                </Button>
-              )}
-              {candidate.socialLinks?.linkedin && (
-                <Button size="sm" variant="ghost" className="text-violet-400 hover:text-white p-1">
-                  <Linkedin className="w-4 h-4" />
-                </Button>
-              )}
-              {candidate.socialLinks?.portfolio && (
-                <Button size="sm" variant="ghost" className="text-violet-400 hover:text-white p-1">
-                  <Globe className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button size="sm" variant="outline" className="border-violet-500/30 text-violet-300 hover:text-white">
-                <Eye className="w-4 h-4" />
-              </Button>
-              <Button size="sm" className="bg-violet-600 hover:bg-violet-700">
-                <MessageSquare className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
+        </div>
+        
+        <div className="sticky bottom-0 flex justify-end p-4 bg-gray-900/90 backdrop-blur-sm border-t border-violet-500/20">
+          <Button variant="default" className="bg-violet-600 hover:bg-violet-700" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }
 

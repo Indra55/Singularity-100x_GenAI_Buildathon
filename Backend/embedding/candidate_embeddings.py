@@ -157,7 +157,8 @@ class CandidateEmbeddings:
             'skills': [],
             'work_preference': None,
             'location': None,
-            'seniority': None
+            'seniority': None,
+            'sector': None
         }
         
         query_lower = query.lower()
@@ -194,6 +195,15 @@ class CandidateEmbeddings:
             if skill in query_lower:
                 requirements['skills'].append(skill)
         
+        # Extract sector/industry information
+        common_sectors = ['healthcare', 'finance', 'tech', 'education', 'retail', 'manufacturing', 
+                         'government', 'nonprofit', 'media', 'entertainment', 'energy', 'transportation',
+                         'consulting', 'legal', 'hospitality', 'construction', 'agriculture', 'pharmaceutical']
+        for sector in common_sectors:
+            if sector in query_lower:
+                requirements['sector'] = sector
+                break
+        
         return requirements
 
     def calculate_enhanced_score(self, similarity_score: float, rerank_score: float, 
@@ -216,6 +226,7 @@ class CandidateEmbeddings:
             'skill_bonus': 0,
             'work_pref_bonus': 0,
             'seniority_bonus': 0,
+            'sector_bonus': 0,
             'total_bonus': 0
         }
         
@@ -255,12 +266,19 @@ class CandidateEmbeddings:
             if requirements['seniority'] in candidate_title:
                 breakdown['seniority_bonus'] = 0.1
         
+        # Sector matching
+        if requirements['sector'] and candidate.get('sector', '').lower() == requirements['sector']:
+            breakdown['sector_bonus'] = 0.2
+        else:
+            breakdown['sector_bonus'] = 0
+        
         # Calculate total bonus
         breakdown['total_bonus'] = round(sum([
             breakdown['experience_bonus'],
             breakdown['skill_bonus'],
             breakdown['work_pref_bonus'],
-            breakdown['seniority_bonus']
+            breakdown['seniority_bonus'],
+            breakdown['sector_bonus']
         ]), 3)
         
         # Final score (0-1 range, then scale to 1-10)
@@ -479,6 +497,57 @@ def search_candidates():
         return jsonify(results), 200
     except Exception as e:
         logger.error(f"Search failed: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/sector_ranking', methods=['POST'])
+def rank_candidates_by_sector():
+    """Rank candidates based on sector and other criteria"""
+    if not search_initialized:
+        return jsonify({'error': 'Search system not initialized. Please check if candidates.json exists.'}), 500
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No JSON data provided'}), 400
+    
+    sector = data.get('sector')
+    if not sector:
+        return jsonify({'error': 'Missing sector in request'}), 400
+    
+    # Additional filters
+    min_experience = data.get('min_experience', 0)
+    skills = data.get('skills', [])
+    k = data.get('top_k', 10)
+    
+    # Construct a query that includes the sector
+    query = f"Looking for candidates in the {sector} sector"
+    if min_experience > 0:
+        query += f" with {min_experience}+ years of experience"
+    if skills:
+        query += f" who know {', '.join(skills)}"
+    
+    try:
+        # Use the existing search functionality with the constructed query
+        results = candidate_search.search_candidates_json(query=query, k=k, include_explanations=True)
+        
+        # Add sector match percentage to the results
+        for candidate in results['candidates']:
+            candidate_sector = candidate.get('sector', '').lower()
+            if candidate_sector == sector.lower():
+                sector_match = 100
+            elif candidate_sector:
+                # Partial match if sectors are related
+                sector_match = 50
+            else:
+                sector_match = 0
+            
+            # Add sector match to the breakdown
+            if 'matchScoreBreakdown' not in candidate:
+                candidate['matchScoreBreakdown'] = {}
+            candidate['matchScoreBreakdown']['sectorMatch'] = sector_match
+        
+        return jsonify(results), 200
+    except Exception as e:
+        logger.error(f"Sector ranking failed: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/health', methods=['GET'])

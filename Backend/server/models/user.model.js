@@ -17,6 +17,29 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  onboardingComplete: {
+    type: Boolean,
+    default: false
+  },
+  companyName: {
+    type: String,
+    trim: true
+  },
+  industrySector: {
+    type: String,
+    trim: true
+  },
+  companySize: {
+    type: Number
+  },
+  officeLocations: [{
+    type: String,
+    trim: true
+  }],
+  keyDepartments: [{
+    type: String,
+    trim: true
+  }]
 }, {
   timestamps: true,
 });

@@ -1,7 +1,8 @@
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = 'your-super-secret-key';
+require('dotenv').config();
+const JWT_SECRET = process.env.JWT_SECRET;
 
-exports.authenticate = (req, res, next) => {
+module.exports = (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
     
@@ -10,7 +11,7 @@ exports.authenticate = (req, res, next) => {
     }
 
     const decodedToken = jwt.verify(token, JWT_SECRET);
-    req.userData = { userId: decodedToken.userId, email: decodedToken.email };
+    req.user = { userId: decodedToken.userId, email: decodedToken.email };
     next();
   } catch (error) {
     return res.status(401).json({ message: 'Authentication failed' });
