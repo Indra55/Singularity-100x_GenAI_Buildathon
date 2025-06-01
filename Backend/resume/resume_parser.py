@@ -15,29 +15,34 @@ import io
 from docx import Document
 from zipfile import ZipFile
 import tempfile
+import logging
 
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Pydantic Models
 class SalaryEstimate(BaseModel):
-    min: float
-    max: float
-    currency: str
+    min: float = Field(default=0.0)
+    max: float = Field(default=0.0)
+    currency: str = Field(default="USD")
 
 class ResumeResponse(BaseModel):
-    name: str
-    title: str
-    location: str
-    yearsOfExperience: int
-    skills: List[str]
-    workPreference: str
-    education: str
-    pastCompanies: List[str]
-    summary: str
-    overallScore: float
-    strengths: List[str]
-    roleRecommendations: List[str]
-    salaryEstimate: SalaryEstimate
-    topSkills: List[str]
+    name: str = Field(default="Unknown")
+    title: str = Field(default="Professional")
+    location: str = Field(default="Not specified")
+    yearsOfExperience: int = Field(default=0)
+    skills: List[str] = Field(default_factory=list)
+    workPreference: str = Field(default="Remote")
+    education: str = Field(default="Not specified")
+    pastCompanies: List[str] = Field(default_factory=list)
+    summary: str = Field(default="No summary available")
+    overallScore: float = Field(default=0.0)
+    strengths: List[str] = Field(default_factory=list)
+    roleRecommendations: List[str] = Field(default_factory=list)
+    salaryEstimate: SalaryEstimate = Field(default_factory=lambda: SalaryEstimate())
+    topSkills: List[str] = Field(default_factory=list)
 
 class ErrorResponse(BaseModel):
     error: str
@@ -52,6 +57,8 @@ class ResumeParsingState(TypedDict):
 
 class ResumeParserGraph:
     def __init__(self, gemini_api_key: str):
+        if not gemini_api_key:
+            raise ValueError("GEMINI_KEY environment variable is not set")
         self.llm = ChatGoogleGenerativeAI(model='models/gemini-2.0-flash-lite', api_key=gemini_api_key)
         self.graph = self._create_graph()
     
@@ -85,6 +92,16 @@ class ResumeParserGraph:
     def _extract_resume_data(self, state: ResumeParsingState) -> ResumeParsingState:
         """Extract structured data from resume text using LLM"""
         try:
+            # Clean and normalize the text
+            resume_text = state['resume_text'].strip()
+            if not resume_text:
+                logger.error("Empty resume text received")
+                state["error"] = "Empty resume text"
+                state["extraction_complete"] = False
+                return state
+
+            logger.info(f"Processing resume text of length: {len(resume_text)}")
+            
             prompt = f"""
             Parse the following resume text and extract information in JSON format with these exact fields:
             - name: Full name of the candidate
@@ -99,39 +116,66 @@ class ResumeParserGraph:
             - overallScore: Score from 0–100 evaluating the resume's strength
             - strengths: Array of strengths or positive attributes
             - roleRecommendations: Array of roles the candidate may be fit for
-            - salaryEstimate: JSON with min, max, and currency keys
+            - salaryEstimate: JSON with min (number), max (number), and currency (string) keys
             - topSkills: Array of top 3–5 most relevant skills
 
             Resume text:
-            {state['resume_text']}
+            {resume_text}
 
             Return only valid JSON without any additional text or markdown formatting.
             """
             
             response = self.llm.invoke([HumanMessage(content=prompt)])
+            logger.info(f"LLM Response received: {response.content[:200]}...")  # Log first 200 chars
             
             # Try to parse the JSON response
             try:
-                parsed_data = json.loads(response.content)
-                state["parsed_data"] = parsed_data
-                state["extraction_complete"] = True
-            except json.JSONDecodeError:
-                # If JSON parsing fails, try to extract JSON from the response
+                # Clean the response content
                 content = response.content.strip()
+                # Remove any markdown code block markers
                 if content.startswith("```json"):
                     content = content[7:-3]
                 elif content.startswith("```"):
                     content = content[3:-3]
                 
-                try:
-                    parsed_data = json.loads(content)
-                    state["parsed_data"] = parsed_data
-                    state["extraction_complete"] = True
-                except json.JSONDecodeError:
-                    state["error"] = "Failed to parse LLM response as JSON"
-                    state["extraction_complete"] = False
+                # Try to parse the cleaned content
+                parsed_data = json.loads(content)
+                logger.info(f"Successfully parsed JSON response")
+                
+                # Ensure all required fields are present with defaults
+                formatted_data = {
+                    "name": parsed_data.get("name", "Unknown"),
+                    "title": parsed_data.get("title", "Professional"),
+                    "location": parsed_data.get("location", "Not specified"),
+                    "yearsOfExperience": int(parsed_data.get("yearsOfExperience", 0)),
+                    "skills": parsed_data.get("skills", []) if isinstance(parsed_data.get("skills"), list) else [],
+                    "workPreference": parsed_data.get("workPreference", "Remote"),
+                    "education": parsed_data.get("education", "Not specified"),
+                    "pastCompanies": parsed_data.get("pastCompanies", []) if isinstance(parsed_data.get("pastCompanies"), list) else [],
+                    "summary": parsed_data.get("summary", "No summary available"),
+                    "overallScore": float(parsed_data.get("overallScore", 0.0)),
+                    "strengths": parsed_data.get("strengths", []) if isinstance(parsed_data.get("strengths"), list) else [],
+                    "roleRecommendations": parsed_data.get("roleRecommendations", []) if isinstance(parsed_data.get("roleRecommendations"), list) else [],
+                    "salaryEstimate": {
+                        "min": float(parsed_data.get("salaryEstimate", {}).get("min", 0.0)),
+                        "max": float(parsed_data.get("salaryEstimate", {}).get("max", 0.0)),
+                        "currency": parsed_data.get("salaryEstimate", {}).get("currency", "USD")
+                    },
+                    "topSkills": parsed_data.get("topSkills", []) if isinstance(parsed_data.get("topSkills"), list) else []
+                }
+                
+                state["parsed_data"] = formatted_data
+                state["extraction_complete"] = True
+                logger.info("Successfully extracted and formatted resume data")
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON parsing error: {str(e)}")
+                logger.error(f"Failed to parse content: {content}")
+                state["error"] = f"Failed to parse LLM response as JSON: {str(e)}"
+                state["extraction_complete"] = False
             
         except Exception as e:
+            logger.error(f"Error during extraction: {str(e)}")
             state["error"] = f"Error during extraction: {str(e)}"
             state["extraction_complete"] = False
         
@@ -208,19 +252,34 @@ class ResumeParserGraph:
     
     async def parse_resume(self, resume_text: str) -> Dict[str, Any]:
         """Parse resume text and return structured data"""
-        initial_state = ResumeParsingState(
-            resume_text=resume_text,
-            parsed_data=None,
-            extraction_complete=False,
-            error=None
-        )
-        
-        # Run the graph
-        result = await asyncio.get_event_loop().run_in_executor(
-            None, self.graph.invoke, initial_state
-        )
-        
-        return result["parsed_data"]
+        try:
+            logger.info(f"Starting resume parsing for text of length: {len(resume_text)}")
+            initial_state = ResumeParsingState(
+                resume_text=resume_text,
+                parsed_data=None,
+                extraction_complete=False,
+                error=None
+            )
+            
+            # Run the graph
+            result = await asyncio.get_event_loop().run_in_executor(
+                None, self.graph.invoke, initial_state
+            )
+            
+            if result.get("error"):
+                logger.error(f"Error in resume parsing: {result['error']}")
+                return None
+            
+            if not result.get("parsed_data"):
+                logger.error("No parsed data returned from resume parsing")
+                return None
+            
+            logger.info("Successfully parsed resume")
+            return result["parsed_data"]
+            
+        except Exception as e:
+            logger.error(f"Error in parse_resume: {str(e)}")
+            return None
 
 # FastAPI Application
 app = FastAPI(
@@ -238,9 +297,11 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-# Initialize the resume parser (you'll need to set your OpenAI API key)
+# Initialize the resume parser
 dotenv.load_dotenv()
 GEMINI_KEY = os.getenv("GEMINI_KEY")
+if not GEMINI_KEY:
+    raise ValueError("GEMINI_KEY environment variable is not set")
 resume_parser = ResumeParserGraph(GEMINI_KEY)
 
 @app.post("/parse-resume", response_model=List[ResumeResponse])
@@ -252,61 +313,144 @@ async def parse_resume_endpoint(file: UploadFile = File(...)):
     Returns: List of structured resume data in JSON format.
     """
     try:
+        logger.info(f"Received file: {file.filename} with content type: {file.content_type}")
         content = await file.read()
         resumes = []
 
         # If the file is a zip, extract supported files and process each
-        if file.content_type == "application/zip":
+        if file.content_type == "application/zip" or file.filename.lower().endswith('.zip'):
+            logger.info("Processing ZIP file")
             with tempfile.TemporaryDirectory() as tmpdir:
                 zip_path = os.path.join(tmpdir, "resumes.zip")
                 with open(zip_path, "wb") as f:
                     f.write(content)
 
                 with ZipFile(zip_path, "r") as zip_ref:
+                    file_list = zip_ref.namelist()
+                    logger.info(f"Files in ZIP: {file_list}")
                     zip_ref.extractall(tmpdir)
 
-                    for name in zip_ref.namelist():
+                    for name in file_list:
                         file_path = os.path.join(tmpdir, name)
-                        if name.lower().endswith(".pdf"):
-                            reader = PdfReader(file_path)
-                            resume_text = "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
-                        elif name.lower().endswith(".docx"):
-                            doc = Document(file_path)
-                            resume_text = "\n".join([para.text for para in doc.paragraphs])
-                        elif name.lower().endswith(".txt"):
-                            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                                resume_text = f.read()
-                        else:
-                            continue  # Skip unsupported file types
+                        try:
+                            logger.info(f"Processing file: {name}")
+                            
+                            if name.lower().endswith(".pdf"):
+                                reader = PdfReader(file_path)
+                                resume_text = "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
+                                logger.info(f"Extracted {len(resume_text)} characters from PDF")
+                            elif name.lower().endswith(".docx"):
+                                doc = Document(file_path)
+                                resume_text = "\n".join([para.text for para in doc.paragraphs])
+                                logger.info(f"Extracted {len(resume_text)} characters from DOCX")
+                            elif name.lower().endswith(".txt"):
+                                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                                    resume_text = f.read()
+                                logger.info(f"Extracted {len(resume_text)} characters from TXT")
+                            else:
+                                logger.warning(f"Skipping unsupported file type: {name}")
+                                continue
 
-                        parsed_data = await resume_parser.parse_resume(resume_text)
-                        resumes.append(ResumeResponse(**parsed_data))
+                            if not resume_text.strip():
+                                logger.warning(f"No text content extracted from {name}")
+                                continue
+
+                            logger.info(f"Parsing resume text from {name}")
+                            parsed_data = await resume_parser.parse_resume(resume_text)
+                            
+                            if parsed_data and isinstance(parsed_data, dict):
+                                logger.info(f"Successfully parsed {name}")
+                                # Ensure all required fields are present with defaults
+                                formatted_data = {
+                                    "name": parsed_data.get("name", "Unknown"),
+                                    "title": parsed_data.get("title", "Professional"),
+                                    "location": parsed_data.get("location", "Not specified"),
+                                    "yearsOfExperience": int(parsed_data.get("yearsOfExperience", 0)),
+                                    "skills": parsed_data.get("skills", []) if isinstance(parsed_data.get("skills"), list) else [],
+                                    "workPreference": parsed_data.get("workPreference", "Remote"),
+                                    "education": parsed_data.get("education", "Not specified"),
+                                    "pastCompanies": parsed_data.get("pastCompanies", []) if isinstance(parsed_data.get("pastCompanies"), list) else [],
+                                    "summary": parsed_data.get("summary", "No summary available"),
+                                    "overallScore": float(parsed_data.get("overallScore", 0.0)),
+                                    "strengths": parsed_data.get("strengths", []) if isinstance(parsed_data.get("strengths"), list) else [],
+                                    "roleRecommendations": parsed_data.get("roleRecommendations", []) if isinstance(parsed_data.get("roleRecommendations"), list) else [],
+                                    "salaryEstimate": {
+                                        "min": float(parsed_data.get("salaryEstimate", {}).get("min", 0.0)),
+                                        "max": float(parsed_data.get("salaryEstimate", {}).get("max", 0.0)),
+                                        "currency": parsed_data.get("salaryEstimate", {}).get("currency", "USD")
+                                    },
+                                    "topSkills": parsed_data.get("topSkills", []) if isinstance(parsed_data.get("topSkills"), list) else []
+                                }
+                                resumes.append(ResumeResponse(**formatted_data))
+                            else:
+                                logger.warning(f"No valid parsed data returned for {name}")
+                        except Exception as e:
+                            logger.error(f"Error processing {name}: {str(e)}")
+                            continue
 
         else:
             # Process single file
-            if file.content_type == "text/plain":
-                resume_text = content.decode("utf-8")
-            elif file.content_type == "application/pdf":
-                reader = PdfReader(io.BytesIO(content))
-                resume_text = "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
-            elif file.content_type in [
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                "application/msword"
-            ]:
-                doc = Document(io.BytesIO(content))
-                resume_text = "\n".join([para.text for para in doc.paragraphs])
-            else:
-                resume_text = content.decode("utf-8", errors="ignore")
+            logger.info("Processing single file")
+            try:
+                if file.content_type == "text/plain":
+                    resume_text = content.decode("utf-8")
+                elif file.content_type == "application/pdf":
+                    reader = PdfReader(io.BytesIO(content))
+                    resume_text = "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
+                elif file.content_type in [
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    "application/msword"
+                ]:
+                    doc = Document(io.BytesIO(content))
+                    resume_text = "\n".join([para.text for para in doc.paragraphs])
+                else:
+                    resume_text = content.decode("utf-8", errors="ignore")
 
-            parsed_data = await resume_parser.parse_resume(resume_text)
-            resumes.append(ResumeResponse(**parsed_data))
+                if not resume_text.strip():
+                    raise HTTPException(status_code=400, detail="No text content could be extracted from the file")
+
+                logger.info(f"Parsing resume text of length: {len(resume_text)}")
+                parsed_data = await resume_parser.parse_resume(resume_text)
+                
+                if parsed_data and isinstance(parsed_data, dict):
+                    logger.info("Successfully parsed single file")
+                    # Ensure all required fields are present with defaults
+                    formatted_data = {
+                        "name": parsed_data.get("name", "Unknown"),
+                        "title": parsed_data.get("title", "Professional"),
+                        "location": parsed_data.get("location", "Not specified"),
+                        "yearsOfExperience": int(parsed_data.get("yearsOfExperience", 0)),
+                        "skills": parsed_data.get("skills", []) if isinstance(parsed_data.get("skills"), list) else [],
+                        "workPreference": parsed_data.get("workPreference", "Remote"),
+                        "education": parsed_data.get("education", "Not specified"),
+                        "pastCompanies": parsed_data.get("pastCompanies", []) if isinstance(parsed_data.get("pastCompanies"), list) else [],
+                        "summary": parsed_data.get("summary", "No summary available"),
+                        "overallScore": float(parsed_data.get("overallScore", 0.0)),
+                        "strengths": parsed_data.get("strengths", []) if isinstance(parsed_data.get("strengths"), list) else [],
+                        "roleRecommendations": parsed_data.get("roleRecommendations", []) if isinstance(parsed_data.get("roleRecommendations"), list) else [],
+                        "salaryEstimate": {
+                            "min": float(parsed_data.get("salaryEstimate", {}).get("min", 0.0)),
+                            "max": float(parsed_data.get("salaryEstimate", {}).get("max", 0.0)),
+                            "currency": parsed_data.get("salaryEstimate", {}).get("currency", "USD")
+                        },
+                        "topSkills": parsed_data.get("topSkills", []) if isinstance(parsed_data.get("topSkills"), list) else []
+                    }
+                    resumes.append(ResumeResponse(**formatted_data))
+                else:
+                    logger.warning("No valid parsed data returned for single file")
+            except Exception as e:
+                logger.error(f"Error processing single file: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
         if not resumes:
-            raise HTTPException(status_code=400, detail="No valid resumes found in the uploaded file.")
+            logger.error("No valid resumes found in the uploaded file(s)")
+            raise HTTPException(status_code=400, detail="No valid resumes found in the uploaded file(s).")
 
+        logger.info(f"Successfully parsed {len(resumes)} resumes")
         return resumes
 
     except Exception as e:
+        logger.error(f"Error in parse_resume_endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing resume(s): {str(e)}")
 
 @app.post("/parse-resume-text", response_model=ResumeResponse)
