@@ -41,6 +41,8 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  LogOut,
+  Settings,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -50,6 +52,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/components/auth-context"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 interface Message {
   id: string
@@ -91,12 +101,327 @@ interface Candidate {
   phone?: string
   yearsInAI?: number
   status: "new" | "contacted" | "interviewing" | "hired" | "rejected"
+  resumeUrl?: string
 }
 
-const mockCandidates: Candidate[] = []
+const mockCandidates: Candidate[] = [
+  {
+    id: '1',
+    name: 'Sarah Johnson',
+    title: 'Senior Frontend Developer',
+    company: 'TechCorp',
+    location: 'San Francisco, CA',
+    experience: 7,
+    skills: ['React', 'TypeScript', 'Next.js', 'Node.js', 'GraphQL'],
+    score: 98,
+    avatar: 'https://randomuser.me/api/portraits/women/1.jpg',
+    summary: 'Senior frontend developer with 7+ years of experience building scalable web applications. Specialized in React ecosystem and modern JavaScript frameworks.',
+    salary: '$140,000 - $160,000',
+    availability: '2 weeks',
+    lastActive: '2 days ago',
+    matchReasons: ['Strong React experience', 'TypeScript expert', 'Experience with Next.js'],
+    githubStars: 24,
+    publications: 3,
+    languages: ['English', 'Spanish'],
+    education: 'MSc in Computer Science, Stanford University',
+    certifications: ['AWS Certified Developer', 'Google Cloud Professional'],
+    projects: ['E-commerce platform', 'Real-time dashboard', 'Design system'],
+    socialLinks: {
+      github: 'https://github.com/sarahj',
+      linkedin: 'https://linkedin.com/in/sarahj',
+      portfolio: 'https://sarahj.dev'
+    },
+    email: 'sarah.j@example.com',
+    phone: '(555) 123-4567',
+    resumeUrl: 'https://example.com/resumes/sarah_johnson.pdf',
+    status: 'new',
+    yearsInAI: 3
+  },
+  {
+    id: '2',
+    name: 'Michael Chen',
+    title: 'Machine Learning Engineer',
+    company: 'AI Innovations',
+    location: 'New York, NY',
+    experience: 5,
+    skills: ['Python', 'TensorFlow', 'PyTorch', 'MLOps', 'AWS'],
+    score: 95,
+    avatar: 'https://randomuser.me/api/portraits/men/1.jpg',
+    summary: 'Machine learning engineer with expertise in deep learning and production ML systems. Passionate about NLP and computer vision applications.',
+    salary: '$150,000 - $180,000',
+    availability: '1 month',
+    lastActive: '1 week ago',
+    matchReasons: ['Strong ML background', 'Experience with MLOps', 'Cloud expertise'],
+    githubStars: 156,
+    publications: 8,
+    languages: ['English', 'Mandarin'],
+    education: 'PhD in Machine Learning, MIT',
+    certifications: ['AWS ML Specialty', 'TensorFlow Developer'],
+    projects: ['Recommendation system', 'Image classification', 'Chatbot'],
+    socialLinks: {
+      github: 'https://github.com/michaelc',
+      linkedin: 'https://linkedin.com/in/michaelc',
+      twitter: 'https://twitter.com/michaelc'
+    },
+    email: 'michael.c@example.com',
+    resumeUrl: 'https://example.com/resumes/michael_chen.pdf',
+    status: 'new',
+    yearsInAI: 5
+  },
+  {
+    id: '3',
+    name: 'Priya Patel',
+    title: 'DevOps Engineer',
+    company: 'CloudScale',
+    location: 'Remote',
+    experience: 6,
+    skills: ['AWS', 'Kubernetes', 'Terraform', 'CI/CD', 'Docker'],
+    score: 92,
+    avatar: 'https://randomuser.me/api/portraits/women/2.jpg',
+    summary: 'DevOps professional with extensive experience in cloud infrastructure and automation. Specialized in building scalable and secure cloud architectures.',
+    salary: '$145,000 - $170,000',
+    availability: 'Immediate',
+    lastActive: '3 days ago',
+    matchReasons: ['Cloud expertise', 'Infrastructure as Code', 'CI/CD pipelines'],
+    githubStars: 42,
+    publications: 1,
+    languages: ['English', 'Hindi', 'Gujarati'],
+    education: 'BSc in Computer Engineering, University of Mumbai',
+    certifications: ['AWS Solutions Architect', 'CKA', 'Terraform Associate'],
+    projects: ['Multi-cloud migration', 'Kubernetes cluster setup', 'Security hardening'],
+    socialLinks: {
+      github: 'https://github.com/priyap',
+      linkedin: 'https://linkedin.com/in/priyap',
+      portfolio: 'https://priyap.dev'
+    },
+    email: 'priya.p@example.com',
+    phone: '(555) 987-6543',
+    resumeUrl: 'https://example.com/resumes/priya_patel.pdf',
+    status: 'new',
+    yearsInAI: 2
+  },
+  {
+    id: '4',
+    name: 'David Kim',
+    title: 'Full Stack Developer',
+    company: 'WebCraft',
+    location: 'Seattle, WA',
+    experience: 4,
+    skills: ['JavaScript', 'Node.js', 'React', 'MongoDB', 'GraphQL'],
+    score: 89,
+    avatar: 'https://randomuser.me/api/portraits/men/2.jpg',
+    summary: 'Full stack developer with experience in building modern web applications. Passionate about clean code and user experience.',
+    salary: '$120,000 - $140,000',
+    availability: '3 weeks',
+    lastActive: '5 days ago',
+    matchReasons: ['Full stack experience', 'JavaScript expert', 'Database skills'],
+    githubStars: 78,
+    publications: 0,
+    languages: ['English', 'Korean'],
+    education: 'BSc in Computer Science, University of Washington',
+    certifications: ['MongoDB Certified Developer'],
+    projects: ['Social media platform', 'E-learning system', 'API development'],
+    socialLinks: {
+      github: 'https://github.com/davidk',
+      linkedin: 'https://linkedin.com/in/davidk',
+      twitter: 'https://twitter.com/davidk'
+    },
+    email: 'david.k@example.com',
+    resumeUrl: 'https://example.com/resumes/david_kim.pdf',
+    status: 'new',
+    yearsInAI: 1
+  },
+  {
+    id: '5',
+    name: 'Emily Rodriguez',
+    title: 'UX/UI Designer',
+    company: 'DesignHub',
+    location: 'Austin, TX',
+    experience: 8,
+    skills: ['Figma', 'Sketch', 'User Research', 'Prototyping', 'UI/UX'],
+    score: 91,
+    avatar: 'https://randomuser.me/api/portraits/women/3.jpg',
+    summary: 'Senior UX/UI designer with a passion for creating intuitive and beautiful user experiences. Strong background in user research and interaction design.',
+    salary: '$130,000 - $150,000',
+    availability: '2 months',
+    lastActive: '1 day ago',
+    matchReasons: ['Extensive design experience', 'User research skills', 'Prototyping expertise'],
+    githubStars: 12,
+    publications: 2,
+    languages: ['English', 'Spanish'],
+    education: 'BFA in Design, Rhode Island School of Design',
+    certifications: ['NN/g UX Certification'],
+    projects: ['Mobile app redesign', 'Design system', 'User research study'],
+    socialLinks: {
+      linkedin: 'https://linkedin.com/in/emilyr',
+      portfolio: 'https://emilyr.design',
+      twitter: 'https://twitter.com/emilyr'
+    },
+    email: 'emily.r@example.com',
+    phone: '(555) 456-7890',
+    resumeUrl: 'https://example.com/resumes/emily_rodriguez.pdf',
+    status: 'new',
+    yearsInAI: 0
+  },
+  {
+    id: '6',
+    name: 'James Wilson',
+    title: 'Data Scientist',
+    company: 'DataInsights',
+    location: 'Boston, MA',
+    experience: 5,
+    skills: ['Python', 'SQL', 'Pandas', 'Machine Learning', 'Data Visualization'],
+    score: 93,
+    avatar: 'https://randomuser.me/api/portraits/men/3.jpg',
+    summary: 'Data scientist with strong analytical skills and experience in building predictive models. Passionate about deriving insights from complex datasets.',
+    salary: '$135,000 - $160,000',
+    availability: '1 month',
+    lastActive: '4 days ago',
+    matchReasons: ['Data analysis skills', 'Machine learning experience', 'Data visualization'],
+    githubStars: 64,
+    publications: 5,
+    languages: ['English'],
+    education: 'MSc in Data Science, Harvard University',
+    certifications: ['Data Science Professional Certificate'],
+    projects: ['Predictive maintenance', 'Customer segmentation', 'Sales forecasting'],
+    socialLinks: {
+      github: 'https://github.com/jamesw',
+      linkedin: 'https://linkedin.com/in/jamesw',
+      portfolio: 'https://jamesw.ds'
+    },
+    email: 'james.w@example.com',
+    resumeUrl: 'https://example.com/resumes/james_wilson.pdf',
+    status: 'new',
+    yearsInAI: 4
+  },
+  {
+    id: '7',
+    name: 'Olivia Chen',
+    title: 'Product Manager',
+    company: 'ProductLabs',
+    location: 'San Francisco, CA',
+    experience: 7,
+    skills: ['Product Strategy', 'Agile', 'User Stories', 'Roadmapping', 'Analytics'],
+    score: 94,
+    avatar: 'https://randomuser.me/api/portraits/women/4.jpg',
+    summary: 'Product manager with experience in both B2B and B2C products. Strong background in user research and data-driven decision making.',
+    salary: '$150,000 - $180,000',
+    availability: '3 weeks',
+    lastActive: '2 days ago',
+    matchReasons: ['Product strategy', 'Agile methodology', 'Analytical skills'],
+    githubStars: 8,
+    publications: 0,
+    languages: ['English', 'Mandarin'],
+    education: 'MBA, UC Berkeley',
+    certifications: ['Pragmatic Institute Certification'],
+    projects: ['Product launch', 'Feature optimization', 'User research study'],
+    socialLinks: {
+      linkedin: 'https://linkedin.com/in/oliviac',
+      twitter: 'https://twitter.com/oliviac'
+    },
+    email: 'olivia.c@example.com',
+    phone: '(555) 789-0123',
+    resumeUrl: 'https://example.com/resumes/olivia_chen.pdf',
+    status: 'new',
+    yearsInAI: 3
+  },
+  {
+    id: '8',
+    name: 'Ryan Park',
+    title: 'iOS Developer',
+    company: 'AppCraft',
+    location: 'New York, NY',
+    experience: 6,
+    skills: ['Swift', 'iOS', 'SwiftUI', 'Objective-C', 'XCTest'],
+    score: 90,
+    avatar: 'https://randomuser.me/api/portraits/men/4.jpg',
+    summary: 'iOS developer with experience in building high-quality mobile applications. Passionate about clean code and great user experiences.',
+    salary: '$140,000 - $165,000',
+    availability: '2 months',
+    lastActive: '1 week ago',
+    matchReasons: ['iOS development', 'Swift expertise', 'Mobile app experience'],
+    githubStars: 37,
+    publications: 1,
+    languages: ['English', 'Korean'],
+    education: 'BSc in Computer Science, NYU',
+    certifications: ['Apple Certified iOS Developer'],
+    projects: ['Fitness app', 'E-commerce app', 'Social media app'],
+    socialLinks: {
+      github: 'https://github.com/ryanp',
+      linkedin: 'https://linkedin.com/in/ryanp',
+      portfolio: 'https://ryanp.dev'
+    },
+    email: 'ryan.p@example.com',
+    resumeUrl: 'https://example.com/resumes/ryan_park.pdf',
+    status: 'new',
+    yearsInAI: 2
+  },
+  {
+    id: '9',
+    name: 'Sophia Martinez',
+    title: 'Cybersecurity Analyst',
+    company: 'SecureNet',
+    location: 'Washington, DC',
+    experience: 8,
+    skills: ['Security Analysis', 'Penetration Testing', 'SIEM', 'Incident Response', 'CISSP'],
+    score: 96,
+    avatar: 'https://randomuser.me/api/portraits/women/5.jpg',
+    summary: 'Cybersecurity professional with extensive experience in threat detection and incident response. Specialized in network security and vulnerability assessment.',
+    salary: '$145,000 - $175,000',
+    availability: '1 month',
+    lastActive: '3 days ago',
+    matchReasons: ['Security expertise', 'Incident response', 'Compliance knowledge'],
+    githubStars: 15,
+    publications: 3,
+    languages: ['English', 'Spanish'],
+    education: 'MSc in Cybersecurity, George Washington University',
+    certifications: ['CISSP', 'CEH', 'Security+'],
+    projects: ['Security audit', 'Incident response plan', 'Security awareness training'],
+    socialLinks: {
+      linkedin: 'https://linkedin.com/in/sophiam',
+      twitter: 'https://twitter.com/sophiam'
+    },
+    email: 'sophia.m@example.com',
+    phone: '(555) 234-5678',
+    resumeUrl: 'https://example.com/resumes/sophia_martinez.pdf',
+    status: 'new',
+    yearsInAI: 6
+  },
+  {
+    id: '10',
+    name: 'Daniel Brown',
+    title: 'Cloud Architect',
+    company: 'CloudScale',
+    location: 'Remote',
+    experience: 10,
+    skills: ['AWS', 'Azure', 'Terraform', 'Kubernetes', 'DevOps'],
+    score: 97,
+    avatar: 'https://randomuser.me/api/portraits/men/5.jpg',
+    summary: 'Seasoned cloud architect with expertise in designing and implementing scalable cloud solutions. Strong background in multi-cloud environments and infrastructure as code.',
+    salary: '$180,000 - $220,000',
+    availability: '1 month',
+    lastActive: '2 days ago',
+    matchReasons: ['Cloud architecture', 'Multi-cloud experience', 'Infrastructure as Code'],
+    githubStars: 89,
+    publications: 2,
+    languages: ['English', 'French'],
+    education: 'MSc in Computer Science, University of Toronto',
+    certifications: ['AWS Solutions Architect Pro', 'Azure Solutions Architect', 'CKA'],
+    projects: ['Cloud migration', 'Multi-region deployment', 'Cost optimization'],
+    socialLinks: {
+      github: 'https://github.com/danielb',
+      linkedin: 'https://linkedin.com/in/danielb',
+      twitter: 'https://twitter.com/danielb'
+    },
+    email: 'daniel.b@example.com',
+    resumeUrl: 'https://example.com/resumes/daniel_brown.pdf',
+    status: 'new',
+    yearsInAI: 5
+  }
+]
 
 export function EnhancedHireAIPlatform() {
-  const { isAuthenticated, isGuestMode, logout, messageCount, incrementMessageCount, hasReachedMessageLimit } =
+  const { user, isAuthenticated, isGuestMode, logout, messageCount, incrementMessageCount, hasReachedMessageLimit } =
     useAuth()
   const [activeTab, setActiveTab] = useState("peoplegpt")
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -124,6 +449,9 @@ export function EnhancedHireAIPlatform() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [isGeneratingOutreach, setIsGeneratingOutreach] = useState(false)
   const [outreachMessages, setOutreachMessages] = useState<Record<string, string>>({})
+  const [showNotification, setShowNotification] = useState(false)
+  const [notificationMessage, setNotificationMessage] = useState('')
+  const [sendingCandidate, setSendingCandidate] = useState<string | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -137,7 +465,31 @@ export function EnhancedHireAIPlatform() {
     scrollToBottom()
   }, [messages])
 
-  const handleSendMessage = async () => {
+  // This is the chat message handler
+  // This function is passed down to the OutreachGeneratorTab
+  const handleSendMessage = (candidateId: string, callback: () => void): boolean => {
+    setSendingCandidate(candidateId);
+    
+    // Simulate API call with timeout
+    setTimeout(() => {
+      setNotificationMessage('Message sent successfully!');
+      setShowNotification(true);
+      
+      // Hide notification after 3 seconds
+      setTimeout(() => {
+        setShowNotification(false);
+      }, 3000);
+      
+      // Call the callback to handle any additional logic
+      callback();
+      setSendingCandidate(null);
+    }, 1000);
+    
+    return true; // Indicate that the message is being sent
+  };
+
+  // This is the chat message handler
+  const handleChatMessage = async () => {
     if (!currentMessage.trim()) return
 
     // Check if user has reached message limit
@@ -296,21 +648,27 @@ export function EnhancedHireAIPlatform() {
     try {
       const messages: Record<string, string> = {}
       
+      // Get user's company and personal info for personalization
+      const companyName = user?.companyName || 'our company'
+      const recruiterName = user?.name || 'a recruiter'
+      const industrySector = user?.industrySector ? ` in the ${user.industrySector} sector` : ''
+      
       // Get the selected candidates from searchResults
       for (const candidateId of selectedCandidates) {
         const candidate = searchResults.find((c) => c.id === candidateId)
         if (candidate) {
-          // Generate personalized outreach message based on candidate data
-          messages[candidateId] = `Hi ${candidate.name},
+          // Generate personalized outreach message based on candidate and user data
+          messages[candidateId] = `Hi ${candidate.name || 'there'},
 
 I hope this email finds you well. I came across your impressive profile${candidate.skills?.length > 0 ? ` and was particularly drawn to your expertise in ${candidate.skills[0]}${candidate.skills.length > 1 ? ` and ${candidate.skills[1]}` : ''}` : ''}.
 
-At our company, we're building cutting-edge AI solutions, and we believe your background${candidate.title ? ` in ${candidate.title}` : ''} would be a perfect fit for our team.${candidate.skills?.length > 0 ? ` Your experience with ${candidate.skills.slice(0, Math.min(3, candidate.skills.length)).join(", ")} aligns perfectly with what we're looking for.` : ''}
+At ${companyName}${industrySector}, we're building cutting-edge AI solutions, and we believe your background${candidate.title ? ` in ${candidate.title}` : ''} would be a perfect fit for our team.${candidate.skills?.length > 0 ? ` Your experience with ${candidate.skills.slice(0, Math.min(3, candidate.skills.length)).join(", ")} aligns perfectly with what we're looking for.` : ''}
 
 Would you be interested in a brief conversation about an exciting opportunity? I'd love to learn more about your career goals and share how you could make a significant impact with us.
 
 Best regards,
-[Your Name]`
+${recruiterName}
+${companyName ? companyName + '\n' : ''}${user?.email || ''}`
         }
       }
       
@@ -323,7 +681,7 @@ Best regards,
   }
 
   const navigationItems = [
-    { id: "peoplegpt", label: "PeopleGPT", icon: Brain, description: "AI-powered candidate search" },
+    { id: "peoplegpt", label: "Scoutly", icon: Brain, description: "AI-powered candidate search" },
     { id: "search", label: "Advanced Search", icon: Search, description: "Detailed search filters" },
     { id: "browse", label: "Browse Candidates", icon: Users, description: "Swipe through profiles" },
     { id: "parser", label: "Resume Parser", icon: FileText, description: "AI resume analysis" },
@@ -332,6 +690,8 @@ Best regards,
     { id: "outreach", label: "Outreach Generator", icon: MessageSquare, description: "Personalized messages" },
     { id: "analytics", label: "Analytics", icon: BarChart3, description: "Recruitment insights" },
   ]
+
+  const [profileOpen, setProfileOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-violet-950/20 to-black text-white relative overflow-hidden">
@@ -413,9 +773,49 @@ Best regards,
                     <Crown className="w-3 h-3 mr-1" />
                     Premium
                   </Badge>
-                  <Button variant="ghost" size="sm" className="text-violet-300 hover:text-white" onClick={logout}>
-                    Logout
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="rounded-full hover:bg-violet-800/50">
+                        <User className="h-5 w-5 text-violet-200" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56 bg-gray-800 border-violet-600/50 text-white" align="end">
+                      <DropdownMenuLabel className="font-normal">
+                        <div className="flex flex-col space-y-1">
+                          <p className="text-sm font-medium leading-none">
+                            {user?.name || user?.email || 'User'}
+                          </p>
+                          {user?.email && (
+                            <p className="text-xs leading-none text-violet-200">
+                              {user.email}
+                            </p>
+                          )}
+                          {user?.companyName && (
+                            <p className="text-xs leading-none text-violet-300 mt-1">
+                              {user.companyName}
+                            </p>
+                          )}
+                        </div>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator className="bg-violet-600/30" />
+                      <DropdownMenuItem className="focus:bg-violet-700/50 focus:text-white">
+                        <User className="mr-2 h-4 w-4" />
+                        <span>Profile</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="focus:bg-violet-700/50 focus:text-white">
+                        <Settings className="mr-2 h-4 w-4" />
+                        <span>Settings</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator className="bg-violet-600/30" />
+                      <DropdownMenuItem 
+                        className="text-red-400 focus:bg-red-900/30 focus:text-red-300"
+                        onClick={logout}
+                      >
+                        <LogOut className="mr-2 h-4 w-4" />
+                        <span>Log out</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               ) : isGuestMode ? (
                 <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30 px-3 py-1">Guest Mode</Badge>
@@ -456,7 +856,7 @@ Best regards,
                   >
                     <Brain className="w-5 h-5 mr-3 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium">PeopleGPT</div>
+                      <div className="font-medium">Scoutly</div>
                       <div className="text-xs opacity-70 truncate">AI-powered candidate search</div>
                     </div>
                   </Button>
@@ -568,7 +968,7 @@ Best regards,
                     isTyping={isTyping}
                     isListening={isListening}
                     setIsListening={setIsListening}
-                    handleSendMessage={handleSendMessage}
+                    handleSendMessage={handleChatMessage}
                     handleViewModeSelect={handleViewModeSelect}
                     messagesEndRef={messagesEndRef}
                     textareaRef={textareaRef}
@@ -644,10 +1044,11 @@ Best regards,
                   <TabsContent value="outreach">
                     <OutreachGeneratorTab
                       selectedCandidates={selectedCandidates}
-                      candidates={mockCandidates}
+                      candidates={searchResults.length > 0 ? searchResults : mockCandidates}
                       generateOutreach={generateOutreach}
                       isGeneratingOutreach={isGeneratingOutreach}
                       outreachMessages={outreachMessages}
+                      onSendMessage={handleSendMessage}
                     />
                   </TabsContent>
 
@@ -661,6 +1062,21 @@ Best regards,
           </div>
         </main>
       </div>
+
+      {/* Notification */}
+      <AnimatePresence>
+        {showNotification && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-4 py-2 rounded-md shadow-lg z-50 flex items-center space-x-2"
+          >
+            <CheckCircle className="w-4 h-4" />
+            <span>{notificationMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Selected Candidates Floating Action */}
       <AnimatePresence>
@@ -743,7 +1159,7 @@ function PeopleGPTChat({
     <div className="max-w-4xl mx-auto">
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
         <h2 className="text-5xl font-bold mb-6 bg-gradient-to-r from-white via-violet-200 to-purple-200 bg-clip-text text-transparent">
-          PeopleGPT Assistant
+        Scoutly Assistant
         </h2>
         <p className="text-xl text-violet-200/80 max-w-2xl mx-auto">
           Describe your ideal hire in natural language and let AI find the best matches
@@ -1974,19 +2390,60 @@ function WebEnrichmentTab({ candidates }: any) {
   )
 }
 
+interface OutreachGeneratorTabProps {
+  selectedCandidates: string[]
+  candidates: Candidate[]
+  generateOutreach: () => void
+  isGeneratingOutreach: boolean
+  outreachMessages: Record<string, string>
+  onSendMessage: (candidateId: string, callback: () => void) => boolean
+}
+
 // Outreach Generator Tab - Complete Implementation
 function OutreachGeneratorTab({
-  selectedCandidates,
-  candidates,
+  selectedCandidates = [],
+  candidates = [],
   generateOutreach,
-  isGeneratingOutreach,
-  outreachMessages,
-}: any) {
+  isGeneratingOutreach = false,
+  outreachMessages = {},
+  onSendMessage,
+}: OutreachGeneratorTabProps) {
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState('');
+  const [sendingCandidate, setSendingCandidate] = useState<string | null>(null);
+
+  // This function is passed down to the OutreachGeneratorTab
+  const handleSendMessage = (candidateId: string, callback: () => void): boolean => {
+    setSendingCandidate(candidateId);
+    
+    // Simulate API call with timeout
+    setTimeout(() => {
+      setNotificationMessage('Message sent successfully!');
+      setShowNotification(true);
+      
+      // Hide notification after 3 seconds
+      setTimeout(() => {
+        setShowNotification(false);
+      }, 3000);
+      
+      // Call the callback to handle any additional logic
+      callback();
+      setSendingCandidate(null);
+    }, 1000);
+    
+    return true; // Indicate that the message is being sent
+  };
+  console.log('OutreachGeneratorTab - selectedCandidates:', selectedCandidates);
+  console.log('OutreachGeneratorTab - all candidates:', candidates);
+
   const [messageType, setMessageType] = useState("email")
   const [tone, setTone] = useState("professional")
   const [customPrompt, setCustomPrompt] = useState("")
 
-  const selectedCandidateData = candidates.filter((c: Candidate) => selectedCandidates.includes(c.id))
+  // Filter candidates to only include those that are selected
+  const selectedCandidateData = candidates.filter((c: Candidate) => 
+    selectedCandidates.includes(c.id)
+  )
 
   return (
     <div className="space-y-8">
@@ -2104,8 +2561,24 @@ function OutreachGeneratorTab({
                           <Button size="sm" variant="outline" className="border-violet-500/30 text-violet-300">
                             Copy Message
                           </Button>
-                          <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                            Send Message
+                          <Button 
+                            size="sm" 
+                            className="bg-green-600 hover:bg-green-700"
+                            onClick={() => {
+                              onSendMessage(candidate.id, () => {
+                                generateOutreach();
+                              });
+                            }}
+                            disabled={sendingCandidate === candidate.id}
+                          >
+                            {sendingCandidate === candidate.id ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Sending...
+                              </>
+                            ) : (
+                              'Send Message'
+                            )}
                           </Button>
                         </div>
                       )}

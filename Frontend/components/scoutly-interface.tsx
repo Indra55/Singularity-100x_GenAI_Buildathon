@@ -238,7 +238,7 @@ export function PeopleGPTInterface() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-violet-200 bg-clip-text text-transparent">
-                  Scoutly
+                  PeopleGPT
                 </h1>
                 <p className="text-xs text-violet-300">AI-Powered Talent Search</p>
               </div>
@@ -316,7 +316,7 @@ function PeopleGPTChat({
     <div className="max-w-4xl mx-auto">
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
         <h2 className="text-5xl font-bold mb-6 bg-gradient-to-r from-white via-violet-200 to-purple-200 bg-clip-text text-transparent">
-        Scoutly Assistant
+          PeopleGPT Assistant
         </h2>
         <p className="text-xl text-violet-200/80 max-w-2xl mx-auto">
           Describe your ideal hire in natural language and let AI find the best matches
