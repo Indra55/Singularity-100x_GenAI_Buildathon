@@ -130,8 +130,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- Built with ❤️ by the HireAI team
-- Special thanks to all our beta testers and contributors
+- Built with ❤️ by the Singularity team
 - Inspired by the challenges of modern recruitment
 
 ---
