@@ -59,38 +59,6 @@ HireAI is a revolutionary recruitment platform that leverages artificial intelli
 
 ### Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/hireai-platform.git
-   cd hireai-platform
-   ```
-
-2. **Install dependencies**
-   ```bash
-   # Install frontend dependencies
-   cd Frontend
-   npm install
-   
-   # Install backend dependencies
-   cd ../Backend
-   npm install
-   ```
-
-3. **Set up environment variables**
-   Create `.env` files in both `Frontend` and `Backend` directories with the required variables (refer to `.env.example` files)
-
-4. **Start the development servers**
-   ```bash
-   # In the Backend directory
-   npm run dev
-   
-   # In a new terminal, in the Frontend directory
-   npm run dev
-   ```
-
-5. **Open your browser**
-   Visit `http://localhost:3000` to see the application in action!
-
 ## 🤖 How It Works
 
 1. **Company Onboarding**
@@ -130,7 +98,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- Built with ❤️ by the HireAI team
+- Built with ❤️ by the Singularity team
 - Special thanks to all our beta testers and contributors
 - Inspired by the challenges of modern recruitment
 
