@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import PlatformOverview from "@/components/PlatformOverview";
@@ -11,13 +11,29 @@ import Footer from "@/components/Footer";
 import AuthModal from "@/components/auth/AuthModal";
 import OnboardingFlow from "@/components/onboarding/OnboardingFlow";
 import Dashboard from "@/components/dashboard/Dashboard";
+import { useAuth } from "@/contexts/AuthContext";
+
+interface User {
+  id?: string;
+  email?: string;
+  username?: string;
+  isGuest?: boolean;
+  remainingQueries?: number;
+  hasCompletedOnboarding?: boolean;
+  [key: string]: any;
+}
+
+interface OnboardingData {
+  [key: string]: any;
+}
 
 const Index = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { isAuthenticated: isAuthFromContext } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [guestQueries, setGuestQueries] = useState(3);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<User | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Enhanced intersection observer for smoother animations
@@ -68,19 +84,31 @@ const Index = () => {
     });
   }, []);
 
-  const handleAuthSuccess = (userData) => {
-    setUser(userData);
-    setIsAuthenticated(true);
-    setShowAuthModal(false);
-    
-    if (!userData.hasCompletedOnboarding) {
-      setShowOnboarding(true);
+  const handleAuthSuccess = (requiresOnboarding: boolean) => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      try {
+        const parsedUser = JSON.parse(userData) as User;
+        setUser(parsedUser);
+        setIsAuthenticated(true);
+        setShowAuthModal(false);
+        
+        if (requiresOnboarding) {
+          setShowOnboarding(true);
+        }
+      } catch (error) {
+        console.error('Failed to parse user data:', error);
+      }
     }
   };
 
-  const handleOnboardingComplete = (onboardingData) => {
+  const handleOnboardingComplete = (onboardingData: OnboardingData) => {
     setShowOnboarding(false);
-    setUser(prev => ({ ...prev, ...onboardingData, hasCompletedOnboarding: true }));
+    setUser(prev => ({
+      ...prev,
+      ...onboardingData,
+      hasCompletedOnboarding: true
+    } as User));
   };
 
   const handleGuestSearch = () => {
@@ -100,7 +128,7 @@ const Index = () => {
   };
 
   // If user is authenticated and completed onboarding, show dashboard
-  if (isAuthenticated && !showOnboarding) {
+  if (isAuthFromContext && !showOnboarding) {
     return <Dashboard user={user} />;
   }
 

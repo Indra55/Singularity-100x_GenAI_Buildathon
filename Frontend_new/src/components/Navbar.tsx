@@ -1,11 +1,7 @@
-
 import React, { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
 import { Menu, X, User, Sparkles, ChevronDown } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
-const Navbar = ({ isAuthenticated, onAuthClick, guestQueries }) => {
+const Navbar = ({ isAuthenticated = false, onAuthClick = () => {}, guestQueries = 2 }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -64,14 +60,13 @@ const Navbar = ({ isAuthenticated, onAuthClick, guestQueries }) => {
 
   return (
     <header
-      className={cn(
-        "fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out",
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out ${
         isScrolled 
-          ? "py-2 sm:py-3 bg-white/95 backdrop-blur-xl shadow-xl border-b border-pulse-100/50" 
+          ? "py-2 sm:py-3 bg-white/95 backdrop-blur-xl shadow-xl border-b border-orange-100/50" 
           : "py-4 sm:py-5 md:py-6 bg-transparent"
-      )}
+      }`}
     >
-      <div className="container flex items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="container mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 h-full">
         <a 
           href="#" 
           className="flex items-center space-x-3 group relative z-10"
@@ -79,154 +74,137 @@ const Navbar = ({ isAuthenticated, onAuthClick, guestQueries }) => {
             e.preventDefault();
             scrollToTop();
           }}
-          aria-label="TalentGPT"
+          aria-label="HireAI"
         >
           <div className="relative">
             <img 
-              src="/logo.svg" 
-              alt="TalentGPT Logo" 
-              className="h-8 sm:h-9 transition-all duration-300 group-hover:scale-110" 
+              src="/logo.png" 
+              alt="HireAI Logo" 
+              className="h-8 sm:h-9 scale-[140%] transition-all duration-300 group-hover:scale-110" 
             />
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-r from-pulse-500 to-pulse-600 rounded-full animate-pulse shadow-lg"></div>
-          </div>
-          <div className="hidden sm:block">
-            <div className="text-xl font-bold text-gray-900 group-hover:text-pulse-600 transition-colors duration-300">
-              TalentGPT
-            </div>
-            <div className="text-xs text-pulse-600 -mt-1 opacity-80">
-              AI Recruiting Platform
-            </div>
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-r rounded-full animate-pulse shadow-lg"></div>
           </div>
         </a>
 
-        {/* Enhanced Desktop Navigation */}
-        <nav className="hidden lg:flex items-center space-x-2">
+        {/* Enhanced Desktop Navigation - Fixed Centering */}
+        <nav className="hidden lg:flex items-center justify-center space-x-1 flex-1 mx-8">
           {navItems.map((item, index) => (
             <a 
               key={index}
               href={item.href} 
-              className="group relative nav-link px-4 py-3 rounded-xl hover:bg-pulse-50/80 transition-all duration-300"
+              className="group relative nav-link px-4 py-3 rounded-xl hover:bg-orange-50/80 transition-all duration-300 text-center"
               onClick={item.onClick || (() => {})}
             >
-              <div className="flex flex-col items-center">
-                <span className="font-medium text-gray-700 group-hover:text-pulse-600 transition-colors duration-300">
+              <div className="flex flex-col items-center justify-center min-h-[60px]">
+                <span className="font-medium text-gray-700 group-hover:text-orange-600 transition-colors duration-300 text-sm leading-tight">
                   {item.label}
                 </span>
-                <span className="text-xs text-gray-500 group-hover:text-pulse-500 transition-colors duration-300 mt-1">
+                <span className="text-xs text-gray-500 group-hover:text-orange-500 transition-colors duration-300 mt-1 leading-tight">
                   {item.description}
                 </span>
               </div>
-              <div className="absolute bottom-0 left-1/2 w-0 h-0.5 bg-gradient-to-r from-pulse-500 to-pulse-600 group-hover:w-full group-hover:left-0 transition-all duration-300 rounded-full"></div>
+              <div className="absolute bottom-0 left-1/2 w-0 h-0.5 bg-gradient-to-r from-orange-500 to-red-600 group-hover:w-full group-hover:left-0 transition-all duration-300 rounded-full"></div>
             </a>
           ))}
-
-          <div className="ml-6 flex items-center gap-4">
-            {isAuthenticated ? (
-              <Button 
-                variant="outline" 
-                className="flex items-center gap-2 hover:bg-pulse-50 hover:border-pulse-300 border-2 px-6 py-2 rounded-xl font-medium transition-all duration-300 hover:shadow-lg"
-              >
-                <User className="w-4 h-4" />
-                <span>Dashboard</span>
-                <ChevronDown className="w-4 h-4 opacity-60" />
-              </Button>
-            ) : (
-              <div className="flex items-center gap-4">
-                {guestQueries < 3 && (
-                  <Badge variant="outline" className="bg-gradient-to-r from-pulse-50 to-purple-50 text-pulse-700 border-pulse-200 px-3 py-1 font-medium">
-                    <Sparkles className="w-3 h-3 mr-1" />
-                    {guestQueries} searches left
-                  </Badge>
-                )}
-                <Button 
-                  onClick={onAuthClick}
-                  className="bg-gradient-to-r from-pulse-500 to-pulse-600 hover:from-pulse-600 hover:to-pulse-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 px-6 py-2 rounded-xl font-semibold"
-                >
-                  <span>Get Started</span>
-                  <Sparkles className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-            )}
-          </div>
         </nav>
+
+        {/* Right side actions */}
+        <div className="hidden lg:flex items-center gap-4">
+          {isAuthenticated ? (
+            <button className="flex items-center gap-2 hover:bg-orange-50 hover:border-orange-300 border-2 border-gray-200 px-6 py-2 rounded-xl font-medium transition-all duration-300 hover:shadow-lg">
+              <User className="w-4 h-4" />
+              <span>Dashboard</span>
+              <ChevronDown className="w-4 h-4 opacity-60" />
+            </button>
+          ) : (
+            <div className="flex items-center gap-4">
+              {guestQueries < 3 && (
+                <div className="bg-gradient-to-r from-orange-50 to-red-50 text-orange-700 border border-orange-200 px-3 py-1 rounded-full font-medium text-sm flex items-center">
+                  <Sparkles className="w-3 h-3 mr-1" />
+                  {guestQueries} searches left
+                </div>
+              )}
+              <button 
+                onClick={onAuthClick}
+                className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 px-6 py-2 rounded-xl font-semibold flex items-center"
+              >
+                <span>Get Started</span>
+                <Sparkles className="w-4 h-4 ml-2" />
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Enhanced Mobile menu button */}
         <div className="lg:hidden flex items-center gap-3">
           {!isAuthenticated && guestQueries < 3 && (
-            <Badge variant="outline" className="bg-pulse-50 text-pulse-700 text-xs px-2 py-1">
+            <div className="bg-orange-50 text-orange-700 text-xs px-2 py-1 rounded-full border border-orange-200">
               {guestQueries} left
-            </Badge>
+            </div>
           )}
 
           {isAuthenticated ? (
-            <Button size="sm" variant="outline" className="flex items-center gap-2 border-2">
+            <button className="flex items-center gap-2 border-2 border-gray-200 px-3 py-2 rounded-lg">
               <User className="w-4 h-4" />
-            </Button>
+            </button>
           ) : (
-            <Button 
-              size="sm" 
+            <button 
               onClick={onAuthClick}
-              className="bg-gradient-to-r from-pulse-500 to-pulse-600 hover:from-pulse-600 hover:to-pulse-700 text-white px-4 py-2 rounded-lg font-medium"
+              className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white px-4 py-2 rounded-lg font-medium"
             >
               Sign In
-            </Button>
+            </button>
           )}
 
           <button 
-            className={cn(
-              "relative p-3 rounded-xl transition-all duration-300",
+            className={`relative p-3 rounded-xl transition-all duration-300 ${
               isMenuOpen 
-                ? "bg-pulse-500 text-white shadow-lg" 
-                : "text-gray-700 hover:bg-gray-100 hover:text-pulse-600"
-            )}
+                ? "bg-orange-500 text-white shadow-lg" 
+                : "text-gray-700 hover:bg-gray-100 hover:text-orange-600"
+            }`}
             onClick={toggleMenu}
             aria-label={isMenuOpen ? "Close menu" : "Open menu"}
           >
             <div className="relative w-6 h-6">
-              <span className={cn(
-                "absolute block h-0.5 w-6 bg-current transform transition-all duration-300",
+              <span className={`absolute block h-0.5 w-6 bg-current transform transition-all duration-300 ${
                 isMenuOpen ? "rotate-45 top-3" : "top-1"
-              )} />
-              <span className={cn(
-                "absolute block h-0.5 w-6 bg-current transform transition-all duration-300 top-3",
+              }`} />
+              <span className={`absolute block h-0.5 w-6 bg-current transform transition-all duration-300 top-3 ${
                 isMenuOpen ? "opacity-0" : "opacity-100"
-              )} />
-              <span className={cn(
-                "absolute block h-0.5 w-6 bg-current transform transition-all duration-300",
+              }`} />
+              <span className={`absolute block h-0.5 w-6 bg-current transform transition-all duration-300 ${
                 isMenuOpen ? "-rotate-45 top-3" : "top-5"
-              )} />
+              }`} />
             </div>
           </button>
         </div>
       </div>
 
       {/* Enhanced Mobile Navigation */}
-      <div className={cn(
-        "fixed inset-0 z-40 lg:hidden transition-all duration-500 ease-out",
+      <div className={`fixed inset-0 z-40 lg:hidden transition-all duration-500 ease-out ${
         isMenuOpen ? "opacity-100 translate-x-0" : "opacity-0 translate-x-full pointer-events-none"
-      )}>
+      }`}>
         <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={toggleMenu} />
-        <div className={cn(
-          "absolute right-0 top-0 h-full w-80 max-w-[90vw] bg-white shadow-2xl transform transition-transform duration-500 ease-out",
+        <div className={`absolute right-0 top-0 h-full w-80 max-w-[90vw] bg-white shadow-2xl transform transition-transform duration-500 ease-out ${
           isMenuOpen ? "translate-x-0" : "translate-x-full"
-        )}>
+        }`}>
           <div className="flex flex-col h-full pt-20 px-6">
             <nav className="flex flex-col space-y-2">
               {navItems.map((item, index) => (
                 <a 
                   key={index}
                   href={item.href} 
-                  className="group p-4 rounded-2xl hover:bg-pulse-50 transition-all duration-300 border-2 border-transparent hover:border-pulse-200" 
+                  className="group p-4 rounded-2xl hover:bg-orange-50 transition-all duration-300 border-2 border-transparent hover:border-orange-200" 
                   onClick={(e) => {
                     if (item.onClick) item.onClick(e);
                     setIsMenuOpen(false);
                     document.body.style.overflow = '';
                   }}
                 >
-                  <div className="text-lg font-semibold text-gray-900 group-hover:text-pulse-600 transition-colors duration-300">
+                  <div className="text-lg font-semibold text-gray-900 group-hover:text-orange-600 transition-colors duration-300">
                     {item.label}
                   </div>
-                  <div className="text-sm text-gray-500 mt-1 group-hover:text-pulse-500 transition-colors duration-300">
+                  <div className="text-sm text-gray-500 mt-1 group-hover:text-orange-500 transition-colors duration-300">
                     {item.description}
                   </div>
                 </a>
@@ -235,17 +213,17 @@ const Navbar = ({ isAuthenticated, onAuthClick, guestQueries }) => {
             
             {!isAuthenticated && (
               <div className="mt-8 space-y-4">
-                <Button 
+                <button 
                   onClick={() => {
                     setIsMenuOpen(false);
                     document.body.style.overflow = '';
                     onAuthClick();
                   }}
-                  className="w-full bg-gradient-to-r from-pulse-500 to-pulse-600 text-white shadow-lg py-4 rounded-2xl font-semibold text-lg"
+                  className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-lg py-4 rounded-2xl font-semibold text-lg flex items-center justify-center"
                 >
                   Get Started Free
                   <Sparkles className="w-5 h-5 ml-2" />
-                </Button>
+                </button>
                 <p className="text-center text-sm text-gray-500">
                   No credit card required
                 </p>

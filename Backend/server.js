@@ -1,39 +1,61 @@
-const express = require("express")
-const app = express()
+const express = require("express");
+const app = express();
+const cors = require("cors");
+require("dotenv").config();
 
-const session = require("express-session")
-const passport = require("passport")
-const flash = require("express-flash")
-const initializePassport = require("./config/passportConfig")
+// Import routes
 const flaskProxyRouter = require("./routes/flaskProxyRoutes");
 const outreachRoutes = require("./routes/outreach");
+const jdRoutes = require('./routes/jd');
+const usersRoutes = require('./routes/users');
+const resumeRoutes = require('./routes/resume');
+const talentPoolRoutes = require('./routes/talentPool');
+const candidateInteractionsRoutes = require('./routes/candidateInteractions');
+const generatedCandidatesRoutes = require('./routes/generatedCandidates');
 
+// CORS configuration
+app.use(cors({
+  origin: process.env.FRONTEND_URL || "http://localhost:8081",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
 
-const {checkAuthenticated,checkNotAuthenticated} = require("./middleware/auth")
- 
-require("dotenv").config()
-
-initializePassport(passport)
- 
-app.set("view engine","ejs") 
-
+// Middleware
 app.use(express.json());
-app.use(express.urlencoded({extended:false})) 
-app.use(session({ 
-    secret: process.env.SESSION_SECRET || 'secret',
-    resave: false,
-    saveUninitialized: false,  
-}))
+app.use(express.urlencoded({ extended: true })); 
 
-app.use(passport.initialize())
-app.use(passport.session());
-app.use(flash())
+// Simple route for health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
-app.use("/", require("./routes/index"))
-app.use("/users",require("./routes/users"))
+// Routes
+app.use("/users", usersRoutes);
 app.use('/candidates', flaskProxyRouter);
 app.use("/outreach", outreachRoutes);
+app.use("/jd", jdRoutes);
+app.use("/resume", resumeRoutes);
+app.use("/talent-pool", talentPoolRoutes);
+app.use("/candidate-interactions", candidateInteractionsRoutes);
+app.use("/generated-candidates", generatedCandidatesRoutes);
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    message: 'Something went wrong!',
+    error: process.env.NODE_ENV === 'development' ? err.message : {}
+  });
+});
 
-const PORT = 4100
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ message: 'Route not found' });
+});
+
+const PORT = process.env.PORT || 4100;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+});

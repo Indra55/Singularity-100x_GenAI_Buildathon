@@ -6,30 +6,138 @@ from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Optional
 import logging
 import os
+import re
 from flask import Blueprint, Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
-load_dotenv() 
 
-
-
-
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 candidates_bp = Blueprint('candidates_embeddings', __name__)
 
 
-class PostgresVectorSearch:
+class EnhancedPostgresVectorSearch:
     def __init__(self, 
                  db_config: Dict,
-                 model_name: str = 'all-MiniLM-L6-v2'):
+                 model_name: str = 'all-mpnet-base-v2'):  # Better model
         
+        # Use better models for higher quality embeddings
+        # Options: 'all-mpnet-base-v2', 'all-MiniLM-L12-v2', 'multi-qa-mpnet-base-dot-v1'
         self.model = SentenceTransformer(model_name)
         self.db_config = db_config
         self.dimension = self.model.get_sentence_embedding_dimension()
         
+        # Initialize skill standardization
+        self.skill_synonyms = self._load_skill_synonyms()
+        
         self._setup_database()
+
+    def _load_skill_synonyms(self) -> Dict[str, str]:
+        """Load skill synonyms for standardization"""
+        return {
+            # Programming languages
+            'js': 'javascript',
+            'ts': 'typescript',
+            'py': 'python',
+            'golang': 'go',
+            'c#': 'csharp',
+            '.net': 'dotnet',
+            
+            # Frameworks
+            'reactjs': 'react',
+            'vuejs': 'vue',
+            'angularjs': 'angular',
+            'nodejs': 'node.js',
+            'nextjs': 'next.js',
+            
+            # Databases
+            'postgresql': 'postgres',
+            'mysql': 'sql',
+            'mongodb': 'mongo',
+            
+            # Cloud
+            'amazon web services': 'aws',
+            'google cloud platform': 'gcp',
+            'microsoft azure': 'azure',
+            
+            # Add more based on your domain
+        }
+
+    def _clean_and_standardize_text(self, text: str) -> str:
+        """Clean and standardize text for better embeddings"""
+        if not text:
+            return ""
+        
+        # Convert to lowercase
+        text = text.lower()
+        
+        # Remove extra whitespace
+        text = ' '.join(text.split())
+        
+        # Standardize skills using synonyms
+        for synonym, standard in self.skill_synonyms.items():
+            text = re.sub(rf'\b{re.escape(synonym)}\b', standard, text)
+        
+        # Remove special characters but keep important ones
+        text = re.sub(r'[^\w\s\+\#\.\-]', ' ', text)
+        
+        return text.strip()
+
+    def _create_enhanced_candidate_text(self, candidate: Dict) -> str:
+        """Create enhanced text representation with weighted importance"""
+        
+        # Define field weights (higher = more important)
+        weighted_fields = {
+            'title': 3,
+            'skills': 3,
+            'summary': 2,
+            'past_companies': 2,
+            'education': 1,
+            'work_preference': 1,
+            'location': 1
+        }
+        
+        text_parts = []
+        
+        # Add weighted fields
+        for field, weight in weighted_fields.items():
+            value = candidate.get(field, '')
+            
+            if field == 'skills' and isinstance(value, list):
+                value = ' '.join(value)
+            elif field == 'past_companies' and isinstance(value, list):
+                value = ' '.join(value)
+            
+            if value:
+                cleaned_value = self._clean_and_standardize_text(str(value))
+                # Repeat important fields based on weight
+                text_parts.extend([cleaned_value] * weight)
+        
+        # Add experience context
+        years_exp = candidate.get('years_of_experience', 0)
+        if years_exp:
+            exp_context = self._get_experience_context(years_exp)
+            text_parts.append(exp_context)
+        
+        # Add name (but with lower weight)
+        name = candidate.get('name', '')
+        if name:
+            text_parts.append(self._clean_and_standardize_text(name))
+        
+        return ' '.join(text_parts)
+
+    def _get_experience_context(self, years: int) -> str:
+        """Add experience level context for better matching"""
+        if years < 2:
+            return "junior entry level beginner"
+        elif years < 5:
+            return "mid level intermediate"
+        elif years < 10:
+            return "senior experienced"
+        else:
+            return "senior lead expert principal architect"
 
     def _setup_database(self):
         """Setup PostgreSQL database with pgvector extension and embedding column"""
@@ -52,6 +160,23 @@ class PostgresVectorSearch:
                 logger.info("Adding embedding column to candidates table...")
                 cur.execute(f"ALTER TABLE candidates ADD COLUMN embedding vector({self.dimension});")
             
+            # Add metadata columns for embedding quality tracking
+            metadata_columns = [
+                ('embedding_model', 'VARCHAR(100)'),
+                ('embedding_version', 'INTEGER DEFAULT 1'),
+                ('text_hash', 'VARCHAR(64)')  # To track if text changed
+            ]
+            
+            for col_name, col_type in metadata_columns:
+                cur.execute(f"""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'candidates' AND column_name = '{col_name}';
+                """)
+                
+                if not cur.fetchone():
+                    cur.execute(f"ALTER TABLE candidates ADD COLUMN {col_name} {col_type};")
+            
             # Create indexes for vector search and filters
             cur.execute("CREATE INDEX IF NOT EXISTS idx_years_exp ON candidates(years_of_experience);")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_work_pref ON candidates(work_preference);")
@@ -69,28 +194,29 @@ class PostgresVectorSearch:
             raise
 
     def _create_vector_index(self):
-        """Create vector index after embeddings are generated"""
+        """Create optimized vector index"""
         try:
             conn = psycopg2.connect(**self.db_config)
             cur = conn.cursor()
             
-            # Check if vector index exists
-            cur.execute("""
-                SELECT EXISTS (
-                    SELECT 1 FROM pg_indexes 
-                    WHERE indexname = 'candidates_embedding_idx'
-                );
-            """)
+            # Drop existing index if it exists
+            cur.execute("DROP INDEX IF EXISTS candidates_embedding_idx;")
             
-            if not cur.fetchone()[0]:
-                logger.info("Creating vector index...")
-                cur.execute("""
-                    CREATE INDEX candidates_embedding_idx 
-                    ON candidates USING ivfflat (embedding vector_cosine_ops)
-                    WITH (lists = 100);
-                """)
-                conn.commit()
-                logger.info("Vector index created successfully")
+            # Get count of candidates to optimize index parameters
+            cur.execute("SELECT COUNT(*) FROM candidates WHERE embedding IS NOT NULL;")
+            count = cur.fetchone()[0]
+            
+            # Calculate optimal lists parameter (rule of thumb: sqrt(rows))
+            lists = max(1, min(1000, int(count ** 0.5)))
+            
+            logger.info(f"Creating vector index with {lists} lists for {count} candidates...")
+            cur.execute(f"""
+                CREATE INDEX candidates_embedding_idx 
+                ON candidates USING ivfflat (embedding vector_cosine_ops)
+                WITH (lists = {lists});
+            """)
+            conn.commit()
+            logger.info("Vector index created successfully")
             
             cur.close()
             conn.close()
@@ -98,55 +224,78 @@ class PostgresVectorSearch:
         except Exception as e:
             logger.error(f"Vector index creation failed: {e}")
 
-    def generate_embeddings_for_existing_candidates(self, batch_size: int = 50):
-        """Generate embeddings for candidates that don't have them yet"""
+    def generate_embeddings_for_existing_candidates(self, batch_size: int = 32, force_regenerate: bool = False):
+        """Generate embeddings with improved text processing"""
         try:
             conn = psycopg2.connect(**self.db_config)
             cur = conn.cursor(cursor_factory=RealDictCursor)
             
-            # Get candidates without embeddings
-            cur.execute("""
-                SELECT id, name, email, title, location, years_of_experience,
-                       skills, work_preference, education, past_companies, summary
-                FROM candidates 
-                WHERE embedding IS NULL
-                ORDER BY created_at;
-            """)
+            # Get candidates that need embeddings
+            if force_regenerate:
+                cur.execute("""
+                    SELECT id, name, email, title, location, years_of_experience,
+                           skills, work_preference, education, past_companies, summary
+                    FROM candidates 
+                    ORDER BY created_at;
+                """)
+            else:
+                cur.execute("""
+                    SELECT id, name, email, title, location, years_of_experience,
+                           skills, work_preference, education, past_companies, summary
+                    FROM candidates 
+                    WHERE embedding IS NULL OR embedding_model IS NULL
+                    ORDER BY created_at;
+                """)
             
             candidates = cur.fetchall()
             
             if not candidates:
-                logger.info("All candidates already have embeddings")
+                logger.info("All candidates already have current embeddings")
                 cur.close()
                 conn.close()
                 return
             
-            logger.info(f"Generating embeddings for {len(candidates)} candidates...")
+            logger.info(f"Generating enhanced embeddings for {len(candidates)} candidates...")
             
-            # Process in batches
+            # Process in batches for better memory management
             for i in range(0, len(candidates), batch_size):
                 batch = candidates[i:i+batch_size]
                 
-                # Generate embeddings for batch
+                # Generate enhanced text representations
                 texts = []
                 candidate_ids = []
+                text_hashes = []
                 
                 for candidate in batch:
-                    text = self._create_candidate_text(dict(candidate))
-                    texts.append(text)
+                    enhanced_text = self._create_enhanced_candidate_text(dict(candidate))
+                    texts.append(enhanced_text)
                     candidate_ids.append(candidate['id'])
+                    
+                    # Create hash of text for change tracking
+                    import hashlib
+                    text_hash = hashlib.md5(enhanced_text.encode()).hexdigest()
+                    text_hashes.append(text_hash)
                 
-                # Generate embeddings
-                embeddings = self.model.encode(texts, normalize_embeddings=True)
+                # Generate embeddings with better normalization
+                embeddings = self.model.encode(
+                    texts, 
+                    normalize_embeddings=True,
+                    batch_size=batch_size,
+                    show_progress_bar=True
+                )
                 
-                # Update database
+                # Update database with metadata
                 update_cur = conn.cursor()
-                for candidate_id, embedding in zip(candidate_ids, embeddings):
+                for candidate_id, embedding, text_hash in zip(candidate_ids, embeddings, text_hashes):
                     update_cur.execute("""
                         UPDATE candidates 
-                        SET embedding = %s, updated_at = NOW()
+                        SET embedding = %s, 
+                            embedding_model = %s,
+                            embedding_version = 2,
+                            text_hash = %s,
+                            updated_at = NOW()
                         WHERE id = %s;
-                    """, (embedding.tolist(), candidate_id))
+                    """, (embedding.tolist(), self.model.get_sentence_embedding_dimension(), text_hash, candidate_id))
                 
                 conn.commit()
                 update_cur.close()
@@ -156,53 +305,66 @@ class PostgresVectorSearch:
             cur.close()
             conn.close()
             
-            # Create vector index after generating embeddings
+            # Create optimized vector index
             self._create_vector_index()
             
-            logger.info("Embedding generation completed successfully")
+            logger.info("Enhanced embedding generation completed successfully")
             
         except Exception as e:
             logger.error(f"Error generating embeddings: {e}")
             raise
 
-    def _create_candidate_text(self, candidate: Dict) -> str:
-        """Create text representation for embedding from your schema"""
-        fields = [
-            candidate.get('title', ''),
-            candidate.get('name', ''),
-            candidate.get('location', ''),
-            f"{candidate.get('years_of_experience', 0)} years experience",
-            ' '.join(candidate.get('skills', []) if candidate.get('skills') else []),
-            candidate.get('work_preference', ''),
-            candidate.get('education', ''),
-            ' '.join(candidate.get('past_companies', []) if candidate.get('past_companies') else []),
-            candidate.get('summary', ''),
-        ]
-        return ' '.join([str(field) for field in fields if field])
-
-    def search(self, query: str, k: int = 5, filters: Optional[Dict] = None) -> List[Dict]:
-        """Search candidates with optional filters using your schema"""
+    def search_with_hybrid_scoring(self, query: str, k: int = 5, filters: Optional[Dict] = None) -> List[Dict]:
+        """Enhanced search with hybrid scoring (semantic + keyword)"""
         try:
-            # Generate query embedding
-            query_embedding = self.model.encode([query], normalize_embeddings=True)[0]
+            # Clean and enhance the query
+            enhanced_query = self._clean_and_standardize_text(query)
             
-            # Build SQL query with your actual columns
-            # In your search method:
+            # Generate query embedding
+            query_embedding = self.model.encode([enhanced_query], normalize_embeddings=True)[0]
+            
+            # Build hybrid search query
             sql = """
                 SELECT 
                     id, name, email, phone, photo, title, location, 
                     years_of_experience, skills, work_preference, education, 
                     past_companies, summary, available_from, linkedin_url, 
                     portfolio_url, status,
-                    ROUND(10 + (1 - (embedding <=> %s::vector)) * 90) as similarity_score
+                    -- Semantic similarity score (0-100)
+                    ROUND((1 - (embedding <=> %s::vector)) * 100) as semantic_score,
+                    -- Keyword matching score
+                    CASE 
+                        WHEN LOWER(title) LIKE LOWER(%s) THEN 20
+                        WHEN EXISTS(SELECT 1 FROM unnest(skills) s WHERE LOWER(s) LIKE LOWER(%s)) THEN 15
+                        WHEN LOWER(summary) LIKE LOWER(%s) THEN 10
+                        ELSE 0
+                    END as keyword_score,
+                    -- Combined hybrid score
+                    ROUND(
+                        (1 - (embedding <=> %s::vector)) * 70 + 
+                        CASE 
+                            WHEN LOWER(title) LIKE LOWER(%s) THEN 20
+                            WHEN EXISTS(SELECT 1 FROM unnest(skills) s WHERE LOWER(s) LIKE LOWER(%s)) THEN 15
+                            WHEN LOWER(summary) LIKE LOWER(%s) THEN 10
+                            ELSE 0
+                        END * 0.3
+                    ) as hybrid_score
                 FROM candidates
                 WHERE embedding IS NOT NULL
             """
             
-            params = [query_embedding.tolist()]
+            # Prepare query parameters for keyword matching
+            keyword_pattern = f"%{enhanced_query}%"
+            params = [
+                query_embedding.tolist(),
+                keyword_pattern, keyword_pattern, keyword_pattern,
+                query_embedding.tolist(),
+                keyword_pattern, keyword_pattern, keyword_pattern
+            ]
+            
             where_conditions = []
             
-            # Add filters based on your schema
+            # Add filters
             if filters:
                 if filters.get('min_experience'):
                     where_conditions.append("years_of_experience >= %s")
@@ -228,23 +390,18 @@ class PostgresVectorSearch:
                     where_conditions.append("available_from <= %s")
                     params.append(filters['available_from'])
                 
-                if filters.get('min_score'):
-                    where_conditions.append("score >= %s")
-                    params.append(filters['min_score'])
-                
                 if filters.get('skills'):
-                    # Check if candidate has any of the required skills
                     skill_conditions = []
                     for skill in filters['skills']:
                         skill_conditions.append("LOWER(%s) = ANY(SELECT LOWER(unnest(skills)))")
-                        params.append(skill)
+                        params.append(skill.lower())
                     if skill_conditions:
                         where_conditions.append(f"({' OR '.join(skill_conditions)})")
             
             if where_conditions:
                 sql += " AND " + " AND ".join(where_conditions)
             
-            sql += " ORDER BY similarity_score DESC LIMIT %s;"
+            sql += " ORDER BY hybrid_score DESC LIMIT %s;"
             params.append(k)
             
             # Execute query
@@ -255,14 +412,12 @@ class PostgresVectorSearch:
             cur.close()
             conn.close()
             
-            # Convert to list of dictionaries and handle UUID serialization
+            # Process results
             candidates = []
             for row in results:
                 candidate = dict(row)
-                # Convert UUID to string for JSON serialization
                 if candidate.get('id'):
                     candidate['id'] = str(candidate['id'])
-                # Convert date to string
                 if candidate.get('available_from'):
                     candidate['available_from'] = candidate['available_from'].isoformat()
                 candidates.append(candidate)
@@ -270,59 +425,43 @@ class PostgresVectorSearch:
             return candidates
             
         except Exception as e:
-            logger.error(f"Search failed: {e}")
+            logger.error(f"Hybrid search failed: {e}")
             raise
 
-    def get_stats(self) -> Dict:
-        """Get database statistics using your schema"""
+    def search(self, query: str, k: int = 5, filters: Optional[Dict] = None) -> List[Dict]:
+        """Main search method using hybrid scoring"""
+        return self.search_with_hybrid_scoring(query, k, filters)
+
+    def get_embedding_quality_stats(self) -> Dict:
+        """Get statistics about embedding quality"""
         try:
             conn = psycopg2.connect(**self.db_config)
             cur = conn.cursor()
             
-            # Total candidates
+            # Basic stats
             cur.execute("SELECT COUNT(*) FROM candidates;")
             total_count = cur.fetchone()[0]
             
-            # Candidates with embeddings
             cur.execute("SELECT COUNT(*) FROM candidates WHERE embedding IS NOT NULL;")
             embedded_count = cur.fetchone()[0]
             
-            # Status distribution
+            # Model distribution
             cur.execute("""
-                SELECT status, COUNT(*) 
+                SELECT embedding_model, COUNT(*) 
                 FROM candidates 
-                WHERE status IS NOT NULL AND status != ''
-                GROUP BY status 
-                ORDER BY COUNT(*) DESC;
+                WHERE embedding_model IS NOT NULL
+                GROUP BY embedding_model;
             """)
-            status_stats = cur.fetchall()
+            model_stats = cur.fetchall()
             
-            # Work preference distribution
+            # Version distribution
             cur.execute("""
-                SELECT work_preference, COUNT(*) 
+                SELECT embedding_version, COUNT(*) 
                 FROM candidates 
-                WHERE work_preference IS NOT NULL AND work_preference != ''
-                GROUP BY work_preference 
-                ORDER BY COUNT(*) DESC;
+                WHERE embedding_version IS NOT NULL
+                GROUP BY embedding_version;
             """)
-            work_pref_stats = cur.fetchall()
-            
-            # Experience distribution
-            cur.execute("""
-                SELECT 
-                    CASE 
-                        WHEN years_of_experience < 2 THEN '0-1 years'
-                        WHEN years_of_experience < 5 THEN '2-4 years'
-                        WHEN years_of_experience < 10 THEN '5-9 years'
-                        ELSE '10+ years'
-                    END as exp_range,
-                    COUNT(*)
-                FROM candidates 
-                WHERE years_of_experience IS NOT NULL
-                GROUP BY exp_range
-                ORDER BY MIN(years_of_experience);
-            """)
-            exp_stats = cur.fetchall()
+            version_stats = cur.fetchall()
             
             cur.close()
             conn.close()
@@ -331,17 +470,17 @@ class PostgresVectorSearch:
                 'total_candidates': total_count,
                 'candidates_with_embeddings': embedded_count,
                 'embedding_coverage': f"{(embedded_count/total_count*100):.1f}%" if total_count > 0 else "0%",
-                'status_distribution': dict(status_stats),
-                'work_preferences': dict(work_pref_stats),
-                'experience_distribution': dict(exp_stats)
+                'model_distribution': dict(model_stats) if model_stats else {},
+                'version_distribution': dict(version_stats) if version_stats else {},
+                'current_model_dimension': self.dimension
             }
             
         except Exception as e:
-            logger.error(f"Error getting stats: {e}")
+            logger.error(f"Error getting embedding quality stats: {e}")
             return {'error': str(e)}
 
 
-# Database configuration
+# Initialize with enhanced system
 DB_CONFIG = {
     'host': os.getenv('DB_HOST', 'localhost'),
     'database': os.getenv('DB_DB', 'candidates_db'),
@@ -350,19 +489,10 @@ DB_CONFIG = {
     'port': os.getenv('DB_PORT', 5432)
 }
 
-# Initialize search system
-postgres_search = PostgresVectorSearch(DB_CONFIG)
+# Use enhanced search system
+postgres_search = EnhancedPostgresVectorSearch(DB_CONFIG)
 
-def initialize_system():
-    """Initialize the system by generating embeddings for existing candidates"""
-    try:
-        postgres_search.generate_embeddings_for_existing_candidates()
-        return True
-    except Exception as e:
-        logger.error(f"Initialization failed: {e}")
-        return False
-
-# Flask routes
+# Routes remain mostly the same but use enhanced search
 @candidates_bp.route('/search', methods=['POST'])
 def search_candidates():
     data = request.get_json()
@@ -370,7 +500,6 @@ def search_candidates():
         return jsonify({'error': 'Missing query'}), 400
     
     try:
-        # Extract filters based on your schema
         filters = {}
         if data.get('min_experience'):
             filters['min_experience'] = data['min_experience']
@@ -384,8 +513,6 @@ def search_candidates():
             filters['status'] = data['status']
         if data.get('available_from'):
             filters['available_from'] = data['available_from']
-        if data.get('min_score'):
-            filters['min_score'] = data['min_score']
         if data.get('skills'):
             filters['skills'] = data['skills']
         
@@ -407,179 +534,20 @@ def search_candidates():
         logger.error(f"Search failed: {e}")
         return jsonify({'error': str(e)}), 500
 
-@candidates_bp.route('/candidates', methods=['POST'])
-def add_candidate():
-    """Add a new candidate with automatic embedding generation"""
-    data = request.get_json()
-    
-    # Validate required fields
-    if not data.get('name') or not data.get('email'):
-        return jsonify({'error': 'Name and email are required'}), 400
-    
+@candidates_bp.route('/regenerate-embeddings', methods=['POST'])
+def regenerate_embeddings():
+    """Force regenerate all embeddings with enhanced quality"""
     try:
-        conn = psycopg2.connect(**postgres_search.db_config)
-        cur = conn.cursor()
-        
-        # Insert new candidate
-        cur.execute("""
-            INSERT INTO candidates (
-                name, email, phone, photo, title, location, years_of_experience,
-                skills, work_preference, education, past_companies, summary,
-                available_from, screening_questions, screening_answers,
-                linkedin_url, portfolio_url, status, score
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id;
-        """, (
-            data['name'], 
-            data['email'], 
-            data.get('phone'),
-            data.get('photo'),
-            data.get('title'), 
-            data.get('location'), 
-            data.get('years_of_experience', 0),
-            data.get('skills', []), 
-            data.get('work_preference'),
-            data.get('education'), 
-            data.get('past_companies', []),
-            data.get('summary'), 
-            data.get('available_from'),
-            data.get('screening_questions', []),
-            data.get('screening_answers', []),
-            data.get('linkedin_url'), 
-            data.get('portfolio_url'),
-            data.get('status', 'active'),
-            data.get('score')
-        ))
-        
-        candidate_id = cur.fetchone()[0]
-        
-        # Generate embedding for new candidate
-        text = postgres_search._create_candidate_text(data)
-        embedding = postgres_search.model.encode([text], normalize_embeddings=True)[0]
-        
-        cur.execute(
-            "UPDATE candidates SET embedding = %s WHERE id = %s",
-            (embedding.tolist(), candidate_id)
-        )
-        
-        conn.commit()
-        cur.close()
-        conn.close()
-        
+        postgres_search.generate_embeddings_for_existing_candidates(force_regenerate=True)
         return jsonify({
             'status': 'success',
-            'candidate_id': str(candidate_id),
-            'message': 'Candidate added successfully with embedding generated'
-        })
-        
-    except Exception as e:
-        logger.error(f"Error adding candidate: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@candidates_bp.route('/candidates/<candidate_id>', methods=['PUT'])
-def update_candidate(candidate_id):
-    """Update an existing candidate and regenerate embedding"""
-    data = request.get_json()
-    
-    try:
-        conn = psycopg2.connect(**postgres_search.db_config)
-        cur = conn.cursor()
-        
-        # Build dynamic update query
-        update_fields = []
-        params = []
-        
-        for field in ['name', 'email', 'phone', 'photo', 'title', 'location', 
-                     'years_of_experience', 'skills', 'work_preference', 'education',
-                     'past_companies', 'summary', 'available_from', 'screening_questions',
-                     'screening_answers', 'linkedin_url', 'portfolio_url', 'status', 'score']:
-            if field in data:
-                update_fields.append(f"{field} = %s")
-                params.append(data[field])
-        
-        if not update_fields:
-            return jsonify({'error': 'No fields to update'}), 400
-        
-        # Add updated_at
-        update_fields.append("updated_at = NOW()")
-        params.append(candidate_id)
-        
-        # Update candidate
-        cur.execute(f"""
-            UPDATE candidates 
-            SET {', '.join(update_fields)}
-            WHERE id = %s
-            RETURNING name, title, location, years_of_experience, skills, 
-                     work_preference, education, past_companies, summary;
-        """, params)
-        
-        updated_data = cur.fetchone()
-        
-        if updated_data:
-            # Regenerate embedding with updated data
-            candidate_dict = {
-                'name': updated_data[0],
-                'title': updated_data[1],
-                'location': updated_data[2],
-                'years_of_experience': updated_data[3],
-                'skills': updated_data[4],
-                'work_preference': updated_data[5],
-                'education': updated_data[6],
-                'past_companies': updated_data[7],
-                'summary': updated_data[8]
-            }
-            
-            text = postgres_search._create_candidate_text(candidate_dict)
-            embedding = postgres_search.model.encode([text], normalize_embeddings=True)[0]
-            
-            cur.execute(
-                "UPDATE candidates SET embedding = %s WHERE id = %s",
-                (embedding.tolist(), candidate_id)
-            )
-        
-        conn.commit()
-        cur.close()
-        conn.close()
-        
-        return jsonify({
-            'status': 'success',
-            'message': 'Candidate updated successfully with new embedding'
-        })
-        
-    except Exception as e:
-        logger.error(f"Error updating candidate: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@candidates_bp.route('/generate-embeddings', methods=['POST'])
-def generate_embeddings():
-    """Manually trigger embedding generation"""
-    try:
-        postgres_search.generate_embeddings_for_existing_candidates()
-        return jsonify({
-            'status': 'success',
-            'message': 'Embeddings generated successfully'
+            'message': 'All embeddings regenerated with enhanced quality'
         })
     except Exception as e:
-        logger.error(f"Embedding generation failed: {e}")
+        logger.error(f"Embedding regeneration failed: {e}")
         return jsonify({'error': str(e)}), 500
 
-@candidates_bp.route('/stats', methods=['GET'])
-def get_stats():
-    """Get database statistics"""
-    return jsonify(postgres_search.get_stats())
-
-@candidates_bp.route('/health', methods=['GET'])
-def health_check():
-    stats = postgres_search.get_stats()
-    return jsonify({
-        'status': 'healthy',
-        'total_candidates': stats.get('total_candidates', 0),
-        'embedding_coverage': stats.get('embedding_coverage', '0%')
-    })
-
-if __name__ == '__main__':
-    if initialize_system():
-        logger.info("System initialized successfully")
-        app.run(debug=True, host='0.0.0.0', port=5001)
-    else:
-        logger.error("Failed to initialize system")
+@candidates_bp.route('/embedding-stats', methods=['GET'])
+def get_embedding_stats():
+    """Get embedding quality statistics"""
+    return jsonify(postgres_search.get_embedding_quality_stats())

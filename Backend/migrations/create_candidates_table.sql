@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS candidates (
+    id SERIAL PRIMARY KEY,
+    candidate_id VARCHAR(255) UNIQUE NOT NULL,
+    name VARCHAR(255),
+    email VARCHAR(255),
+    phone VARCHAR(50),
+    location VARCHAR(255),
+    linkedin_url TEXT,
+    portfolio_url TEXT,
+    years_of_experience INTEGER,
+    current_role VARCHAR(255),
+    previous_roles TEXT[],
+    skills TEXT[],
+    education_degree VARCHAR(255),
+    education_university VARCHAR(255),
+    summary TEXT,
+    work_preference VARCHAR(100),
+    status VARCHAR(50) DEFAULT 'New',
+    source VARCHAR(100) DEFAULT 'Resume Parser',
+    original_resume VARCHAR(255),
+    added_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+); 

@@ -1,78 +1,87 @@
-
-import React, { useState } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Mail, Github, Linkedin, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { ToastAction } from "@/components/ui/toast";
 
-const AuthModal = ({ isOpen, onClose, onSuccess }) => {
+interface AuthModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: (requiresOnboarding: boolean) => void;
+}
+
+interface FormData {
+  email: string;
+  password: string;
+  fullName: string;
+}
+
+const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     email: "",
     password: "",
-    confirmPassword: "",
     fullName: ""
   });
   const { toast } = useToast();
+  const { login, register } = useAuth();
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleEmailAuth = async (isSignUp = false) => {
     setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      const userData = {
-        id: "user_123",
-        email: formData.email,
-        fullName: formData.fullName || formData.email.split('@')[0],
-        hasCompletedOnboarding: false
-      };
+    try {
+      if (isSignUp) {
+        const { requiresOnboarding } = await register(
+          formData.fullName,
+          formData.email,
+          formData.password
+        );
+        
+        toast({
+          title: "Success",
+          description: "Account created successfully!",
+        });
+
+        // Pass onboarding status to parent component
+        onSuccess(requiresOnboarding);
+      } else {
+        const { requiresOnboarding } = await login(
+          formData.email,
+          formData.password
+        );
+        
+        toast({
+          title: "Success",
+          description: "Welcome back!",
+        });
+
+        // Pass onboarding status to parent component
+        onSuccess(requiresOnboarding);
+      }
+    } catch (error) {
+      console.error("Auth error:", error);
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Authentication failed. Please try again.';
       
       toast({
-        title: isSignUp ? "Account created!" : "Welcome back!",
-        description: isSignUp ? "Please complete your profile setup." : "You've been successfully signed in."
+        title: "Error",
+        variant: "destructive",
+        description: errorMessage,
+        action: <ToastAction altText="Try again" onClick={() => {}}>Try again</ToastAction>,
       });
-      
-      onSuccess(userData);
+    } finally {
       setIsLoading(false);
-    }, 1500);
-  };
-
-  const handleSocialAuth = (provider) => {
-    setIsLoading(true);
-    
-    // Simulate social auth
-    setTimeout(() => {
-      const userData = {
-        id: `${provider}_user_123`,
-        email: `user@${provider}.com`,
-        fullName: `${provider} User`,
-        hasCompletedOnboarding: false,
-        authProvider: provider
-      };
-      
-      toast({
-        title: "Welcome!",
-        description: `Successfully signed in with ${provider}. Let's set up your profile.`
-      });
-      
-      onSuccess(userData);
-      setIsLoading(false);
-    }, 2000);
-  };
-
-  const handleOTPAuth = () => {
-    toast({
-      title: "OTP Sent",
-      description: "Please check your email for the verification code."
-    });
+    }
   };
 
   return (
@@ -185,44 +194,6 @@ const AuthModal = ({ isOpen, onClose, onSuccess }) => {
             </div>
           </TabsContent>
         </Tabs>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <Button 
-            variant="outline" 
-            onClick={() => handleSocialAuth('github')}
-            disabled={isLoading}
-          >
-            <Github className="mr-2 h-4 w-4" />
-            GitHub
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => handleSocialAuth('linkedin')}
-            disabled={isLoading}
-          >
-            <Linkedin className="mr-2 h-4 w-4" />
-            LinkedIn
-          </Button>
-        </div>
-
-        <Button 
-          variant="outline" 
-          onClick={handleOTPAuth}
-          className="w-full"
-          disabled={isLoading}
-        >
-          <Mail className="mr-2 h-4 w-4" />
-          Continue with OTP
-        </Button>
 
         <p className="text-xs text-center text-muted-foreground">
           By continuing, you agree to our Terms of Service and Privacy Policy.
