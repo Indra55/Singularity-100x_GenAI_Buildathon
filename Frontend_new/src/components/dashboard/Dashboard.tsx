@@ -34,6 +34,7 @@ const ResumeParser = React.lazy(() => import("@/components/dashboard/ResumeParse
 const OutreachCenter = React.lazy(() => import("@/components/dashboard/OutreachCenter"));
 const Analytics = React.lazy(() => import("@/components/dashboard/Analytics"));
 const AIInterview = React.lazy(() => import("@/components/dashboard/AIInterview"));
+const JDMaker = React.lazy(() => import("@/components/dashboard/JDMaker"));
 
 interface DashboardProps {
   user?: any; // Consider defining a proper User type
@@ -333,6 +334,8 @@ const Dashboard: React.FC<DashboardProps> = () => {
         );
       case 'parser':
         return <ResumeParser user={user} />;
+      case 'jd':
+        return <JDMaker user={user} />;
       case 'interview':
         return <AIInterview user={user} />;
       case 'outreach':

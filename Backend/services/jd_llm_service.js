@@ -26,31 +26,42 @@ async function generateJD(jobDetails) {
         } = jobDetails;
 
         const prompt = `
-Generate a compelling and well-structured Job Description using the following details:
+Generate a compelling and well-structured Job Description using the following details. Format the output in clean markdown without using asterisks for emphasis:
 
-- **Job Title**: ${job_title}
-- **Department/Team**: ${department}
-- **Company Overview**: ${company_overview}
-- **Key Responsibilities**: 
-  ${responsibilities.split('\n').filter(Boolean).map(r => `- ${r}`).join('\n  ')}
-- **Required Skills/Qualifications**: 
-  ${required_skills.split('\n').filter(Boolean).map(s => `- ${s}`).join('\n  ')}
-- **Preferred Skills/Qualifications**: 
-  ${preferred_skills === 'Not specified' ? 'Not specified' : preferred_skills.split('\n').filter(Boolean).map(s => `- ${s}`).join('\n  ')}
-- **Work Type**: ${work_type}
-- **Location**: ${location}
-- **Employment Type**: ${employment_type}
-- **Seniority Level**: ${seniority_level}
-- **Salary Range**: ${salary_range}
-- **Perks and Benefits**: 
-  ${perks === 'Not specified' ? 'Not specified' : perks.split('\n').filter(Boolean).map(p => `- ${p}`).join('\n  ')}
-- **Preferred Tone/Style**: ${tone}
+# ${job_title}
 
-**Output Requirements**:
-- Format the output as a job listing suitable for use on job boards and company career pages.
-- Begin with an engaging summary that attracts the right candidates.
-- Ensure clarity, inclusivity, and a consistent tone throughout the description.
-- Do not include any placeholders or template markers in the final output.
+## About the Role
+${company_overview}
+
+## Department
+${department}
+
+## Key Responsibilities
+${responsibilities.split('\n').filter(Boolean).map(r => `- ${r}`).join('\n')}
+
+## Required Skills & Qualifications
+${required_skills.split('\n').filter(Boolean).map(s => `- ${s}`).join('\n')}
+
+## Preferred Skills & Qualifications
+${preferred_skills === 'Not specified' ? 'Not specified' : preferred_skills.split('\n').filter(Boolean).map(s => `- ${s}`).join('\n')}
+
+## Work Details
+- Work Type: ${work_type}
+- Location: ${location}
+- Employment Type: ${employment_type}
+- Seniority Level: ${seniority_level}
+- Salary Range: ${salary_range}
+
+## Perks & Benefits
+${perks === 'Not specified' ? 'Not specified' : perks.split('\n').filter(Boolean).map(p => `- ${p}`).join('\n')}
+
+**Output Requirements:**
+- Use clean markdown formatting without asterisks for emphasis
+- Use proper heading levels (# for main title, ## for sections)
+- Use bullet points for lists
+- Keep the tone ${tone.toLowerCase()}
+- Ensure clarity and inclusivity throughout
+- Do not include any placeholders or template markers
 `;
 
         const result = await model.generateContent(prompt);

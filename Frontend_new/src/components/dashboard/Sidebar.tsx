@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { 
@@ -10,7 +9,8 @@ import {
   Bookmark,
   Settings,
   HelpCircle,
-  Video
+  Video,
+  Briefcase
 } from "lucide-react";
 
 const Sidebar = ({ activeView, onViewChange }) => {
@@ -18,6 +18,7 @@ const Sidebar = ({ activeView, onViewChange }) => {
     { id: 'search', label: 'Candidate Search', icon: Search },
     { id: 'candidates', label: 'All Candidates', icon: Users },
     { id: 'parser', label: 'Resume Parser', icon: FileText },
+    { id: 'jd', label: 'JD Maker', icon: Briefcase },
     { id: 'interview', label: 'AI Interview', icon: Video },
     { id: 'outreach', label: 'Outreach Center', icon: MessageSquare },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
