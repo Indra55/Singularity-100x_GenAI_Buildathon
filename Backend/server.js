@@ -14,8 +14,21 @@ const candidateInteractionsRoutes = require('./routes/candidateInteractions');
 const generatedCandidatesRoutes = require('./routes/generatedCandidates');
 
 // CORS configuration
+const allowedOrigins = [
+  "https://singularity-100x-gen-ai-buildathon.vercel.app",
+  "http://localhost:8081"
+];
+
 app.use(cors({
-  origin: "https://singularity-100x-gen-ai-buildathon.vercel.app/" || "http://localhost:8081",
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error("Not allowed by CORS"));
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
