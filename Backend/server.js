@@ -15,7 +15,7 @@ const generatedCandidatesRoutes = require('./routes/generatedCandidates');
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:8081",
+  origin: "https://singularity-100x-gen-ai-buildathon.vercel.app/" || "http://localhost:8081",
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
