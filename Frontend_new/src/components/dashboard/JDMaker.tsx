@@ -50,7 +50,7 @@ const JDMaker = ({ user }) => {
     setIsGenerating(true);
     try {
       const response = await axios.post(
-        "https://singularity-100x-gen-ai-buildathon.vercel.app/jd/generate_jd",
+        "https://singularity-100x-genai-buildathon.onrender.com/jd/generate_jd",
         formData,
         {
           headers: {
