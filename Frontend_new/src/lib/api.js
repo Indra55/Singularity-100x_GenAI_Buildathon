@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:4100",
+  baseURL: "https://singularity-100x-genai-buildathon.onrender.com",
   headers: {
     "Content-Type": "application/json",
   },
