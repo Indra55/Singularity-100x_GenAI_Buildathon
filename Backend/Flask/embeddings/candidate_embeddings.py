@@ -7,6 +7,7 @@ from typing import List, Dict, Optional
 import logging
 import os
 import re
+import hashlib
 from flask import Blueprint, Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -20,19 +21,23 @@ candidates_bp = Blueprint('candidates_embeddings', __name__)
 
 class EnhancedPostgresVectorSearch:
     def __init__(self, 
-                 db_config: Dict,
+                 database_url: str,
                  model_name: str = 'all-mpnet-base-v2'):  # Better model
         
         # Use better models for higher quality embeddings
         # Options: 'all-mpnet-base-v2', 'all-MiniLM-L12-v2', 'multi-qa-mpnet-base-dot-v1'
         self.model = SentenceTransformer(model_name)
-        self.db_config = db_config
+        self.database_url = database_url
         self.dimension = self.model.get_sentence_embedding_dimension()
         
         # Initialize skill standardization
         self.skill_synonyms = self._load_skill_synonyms()
         
         self._setup_database()
+
+    def _get_connection(self):
+        """Get database connection using connection string"""
+        return psycopg2.connect(self.database_url)
 
     def _load_skill_synonyms(self) -> Dict[str, str]:
         """Load skill synonyms for standardization"""
@@ -142,7 +147,7 @@ class EnhancedPostgresVectorSearch:
     def _setup_database(self):
         """Setup PostgreSQL database with pgvector extension and embedding column"""
         try:
-            conn = psycopg2.connect(**self.db_config)
+            conn = self._get_connection()
             cur = conn.cursor()
             
             # Enable required extensions
@@ -196,7 +201,7 @@ class EnhancedPostgresVectorSearch:
     def _create_vector_index(self):
         """Create optimized vector index"""
         try:
-            conn = psycopg2.connect(**self.db_config)
+            conn = self._get_connection()
             cur = conn.cursor()
             
             # Drop existing index if it exists
@@ -227,7 +232,7 @@ class EnhancedPostgresVectorSearch:
     def generate_embeddings_for_existing_candidates(self, batch_size: int = 32, force_regenerate: bool = False):
         """Generate embeddings with improved text processing"""
         try:
-            conn = psycopg2.connect(**self.db_config)
+            conn = self._get_connection()
             cur = conn.cursor(cursor_factory=RealDictCursor)
             
             # Get candidates that need embeddings
@@ -272,7 +277,6 @@ class EnhancedPostgresVectorSearch:
                     candidate_ids.append(candidate['id'])
                     
                     # Create hash of text for change tracking
-                    import hashlib
                     text_hash = hashlib.md5(enhanced_text.encode()).hexdigest()
                     text_hashes.append(text_hash)
                 
@@ -405,7 +409,7 @@ class EnhancedPostgresVectorSearch:
             params.append(k)
             
             # Execute query
-            conn = psycopg2.connect(**self.db_config)
+            conn = self._get_connection()
             cur = conn.cursor(cursor_factory=RealDictCursor)
             cur.execute(sql, params)
             results = cur.fetchall()
@@ -435,7 +439,7 @@ class EnhancedPostgresVectorSearch:
     def get_embedding_quality_stats(self) -> Dict:
         """Get statistics about embedding quality"""
         try:
-            conn = psycopg2.connect(**self.db_config)
+            conn = self._get_connection()
             cur = conn.cursor()
             
             # Basic stats
@@ -480,19 +484,11 @@ class EnhancedPostgresVectorSearch:
             return {'error': str(e)}
 
 
-# Initialize with enhanced system
-DB_CONFIG = {
-    'host': os.getenv('DB_HOST', 'localhost'),
-    'database': os.getenv('DB_DB', 'candidates_db'),
-    'user': os.getenv('DB_USER', 'postgres'),
-    'password': os.getenv('DB_PASSWORD', 'password'),
-    'port': os.getenv('DB_PORT', 5432)
-}
+# Initialize with connection string
+DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:password@localhost:5432/candidates_db')
+postgres_search = EnhancedPostgresVectorSearch(DATABASE_URL)
 
-# Use enhanced search system
-postgres_search = EnhancedPostgresVectorSearch(DB_CONFIG)
-
-# Routes remain mostly the same but use enhanced search
+# Routes
 @candidates_bp.route('/search', methods=['POST'])
 def search_candidates():
     data = request.get_json()
@@ -551,3 +547,40 @@ def regenerate_embeddings():
 def get_embedding_stats():
     """Get embedding quality statistics"""
     return jsonify(postgres_search.get_embedding_quality_stats())
+
+@candidates_bp.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'service': 'Enhanced Candidate Search API',
+        'model_dimension': postgres_search.dimension
+    })
+
+# Flask app setup
+def create_app():
+    app = Flask(__name__)
+    CORS(app)
+    
+    # Register blueprint
+    app.register_blueprint(candidates_bp, url_prefix='/api/candidates')
+    
+    @app.route('/')
+    def index():
+        return jsonify({
+            'service': 'Enhanced Candidate Search API',
+            'version': '2.0',
+            'endpoints': {
+                'search': '/api/candidates/search',
+                'regenerate_embeddings': '/api/candidates/regenerate-embeddings',
+                'embedding_stats': '/api/candidates/embedding-stats',
+                'health': '/api/candidates/health'
+            }
+        })
+    
+    return app
+
+if __name__ == '__main__':
+    app = create_app()
+    port = int(os.getenv('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=os.getenv('FLASK_ENV') == 'development')
