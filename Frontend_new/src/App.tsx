@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from 'react';
 
@@ -20,6 +20,7 @@ const queryClient = new QueryClient();
 const AppRoutes = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [initialCheckDone, setInitialCheckDone] = useState(false);
 
@@ -39,6 +40,8 @@ const AppRoutes = () => {
   const handleOnboardingComplete = (data: OnboardingData) => {
     console.log('Onboarding completed');
     setShowOnboarding(false);
+    // Force a refresh of the auth state
+    window.location.href = '/dashboard';
   };
 
   // Show loading state while checking initial auth status

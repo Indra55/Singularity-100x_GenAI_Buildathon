@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Building, Users, Briefcase, MapPin, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 
 export interface OnboardingData {
@@ -34,6 +35,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }): 
     keyDepartments: []
   });
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const companySizes = [
     "1-10 employees",
@@ -199,7 +201,13 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }): 
           description: "Welcome aboard. Let's get started!",
         });
         
+        // Call onComplete first to update parent state
         onComplete(onboardingData);
+        
+        // Small delay to ensure state updates are processed
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 100);
       } else {
         throw new Error(response.data.message || "Failed to save onboarding data");
       }
