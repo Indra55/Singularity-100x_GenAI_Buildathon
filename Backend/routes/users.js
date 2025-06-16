@@ -165,11 +165,11 @@ router.post('/onboarding/:userId', async (req, res) => {
     const result = await pool.query(
       `UPDATE users 
        SET company_name = $1, sector = $2, company_size = $3, 
-           officelocations = $4, keydepartments = $5, onboarding_complete = $6, updated_at = CURRENT_TIMESTAMP
+           officelocations = $4::text[], keydepartments = $5::text[], onboarding_complete = $6, updated_at = CURRENT_TIMESTAMP
        WHERE id = $7
        RETURNING id, username, email, company_name, sector, company_size, 
                  officelocations, keydepartments, onboarding_complete, updated_at`,
-      [companyName, sector, companySize, JSON.stringify(officeLocations), JSON.stringify(keyDepartments), true, userId]
+      [companyName, sector, companySize, officeLocations, keyDepartments, true, userId]
     );
     
     if (result.rows.length === 0) {
