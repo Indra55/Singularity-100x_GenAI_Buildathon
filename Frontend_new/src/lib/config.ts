@@ -1,7 +1,7 @@
 // Backend URLs for different environments
 const BACKEND_URLS = {
     development: 'http://localhost:4100', // Local dev server
-    production: 'https://api.your-production-domain.com', // Production server
+    production: 'https://singularity-100x-genai-buildathon.onrender.com', // Production server
   } as const;
   
   // Determine current environment
