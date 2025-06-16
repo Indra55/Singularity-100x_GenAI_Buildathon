@@ -35,6 +35,8 @@ const OutreachCenter = React.lazy(() => import("@/components/dashboard/OutreachC
 const Analytics = React.lazy(() => import("@/components/dashboard/Analytics"));
 const AIInterview = React.lazy(() => import("@/components/dashboard/AIInterview"));
 const JDMaker = React.lazy(() => import("@/components/dashboard/JDMaker"));
+const PipelineIntelligence = React.lazy(() => import("@/components/dashboard/PipelineIntelligence"));
+const AIInterviewerTraining = React.lazy(() => import("@/components/dashboard/AIInterviewerTraining"));
 
 interface DashboardProps {
   user?: any; // Consider defining a proper User type
@@ -322,32 +324,32 @@ const Dashboard: React.FC<DashboardProps> = () => {
   const renderContent = () => {
     switch (activeView) {
       case 'search':
-        return renderSearchView();
+        return viewMode === 'search' ? renderSearchView() : renderSwipeView();
       case 'candidates':
         return (
-          <CandidateList 
+          <CandidateList
             candidates={candidates}
-            onSelect={handleCandidateSelect}
+            onSelect={onSelect}
             selectedCandidates={selectedCandidates}
-            viewMode="list"
+            viewMode={viewMode}
           />
         );
       case 'parser':
-        return <ResumeParser user={user} />;
+        return <ResumeParser />;
       case 'jd':
-        return <JDMaker user={user} />;
+        return <JDMaker />;
       case 'interview':
         return <AIInterview user={user} />;
       case 'outreach':
-        return (
-          <OutreachCenter 
-            selectedCandidates={selectedCandidates}
-            onCandidateRemove={(id: string) => setSelectedCandidates(prev => prev.filter(c => c.id !== id))}
-            userId={user?.id}
-          />
-        );
+        return <OutreachCenter />;
+      case 'pipeline':
+        return <PipelineIntelligence user={user} />;
+      case 'training':
+        return <AIInterviewerTraining user={user} />;
       case 'analytics':
-        return <Analytics user={user} />;
+        return <Analytics />;
+      case 'saved':
+        return <ChatInterface />;
       default:
         return renderSearchView();
     }
