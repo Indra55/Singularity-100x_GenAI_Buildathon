@@ -164,6 +164,13 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }): 
         data: onboardingData
       });
 
+      // Ensure arrays are properly serialized
+      const serializedData = {
+        ...onboardingData,
+        officeLocations: Array.isArray(onboardingData.officeLocations) ? onboardingData.officeLocations : [],
+        keyDepartments: Array.isArray(onboardingData.keyDepartments) ? onboardingData.keyDepartments : []
+      };
+
       // Make API call with proper headers
       const config = token ? {
         headers: {
@@ -172,7 +179,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }): 
         }
       } : {};
 
-      const response = await api.post(`/users/onboarding/${userId}`, onboardingData, config);
+      const response = await api.post(`/users/onboarding/${userId}`, serializedData, config);
       
       console.log("Onboarding response:", response.data);
 
@@ -254,7 +261,11 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }): 
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}} modal>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) {
+        onComplete(onboardingData);
+      }
+    }} modal>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-center text-2xl font-bold">
