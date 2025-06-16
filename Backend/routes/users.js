@@ -113,11 +113,110 @@ router.post("/login", (req, res, next) => {
   })(req, res, next);
 });
 
+// Enhanced onboarding route with better error handling and logging
+router.post('/onboarding/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const { companyName, sector, companySize, officeLocations, keyDepartments } = req.body;
+
+  console.log('=== ONBOARDING REQUEST ===');
+  console.log('User ID:', userId);
+  console.log('Request Body:', JSON.stringify(req.body, null, 2));
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+
+  // Validate required fields
+  if (!companyName || !sector || !companySize || !officeLocations || !keyDepartments) {
+    console.log('Validation failed - missing required fields');
+    return res.status(400).json({ 
+      success: false, 
+      message: 'All fields are required',
+      received: { companyName, sector, companySize, officeLocations, keyDepartments }
+    });
+  }
+
+  // Validate arrays
+  if (!Array.isArray(officeLocations) || !Array.isArray(keyDepartments)) {
+    console.log('Validation failed - arrays expected');
+    return res.status(400).json({ 
+      success: false, 
+      message: 'officeLocations and keyDepartments must be arrays' 
+    });
+  }
+
+  if (officeLocations.length === 0 || keyDepartments.length === 0) {
+    console.log('Validation failed - empty arrays');
+    return res.status(400).json({ 
+      success: false, 
+      message: 'At least one office location and one department are required' 
+    });
+  }
+
+  try {
+    // First, check if user exists
+    const userCheck = await pool.query('SELECT id FROM users WHERE id = $1', [userId]);
+    if (userCheck.rows.length === 0) {
+      console.log('User not found:', userId);
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    console.log('Updating user with data...');
+    const result = await pool.query(
+      `UPDATE users 
+       SET company_name = $1, sector = $2, company_size = $3, 
+           officelocations = $4, keydepartments = $5, onboarding_complete = $6, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $7
+       RETURNING id, username, email, company_name, sector, company_size, 
+                 officelocations, keydepartments, onboarding_complete, updated_at`,
+      [companyName, sector, companySize, JSON.stringify(officeLocations), JSON.stringify(keyDepartments), true, userId]
+    );
+    
+    if (result.rows.length === 0) {
+      console.log('Update failed - no rows affected');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Failed to update user' 
+      });
+    }
+
+    const updatedUser = result.rows[0];
+    console.log('Update successful:', JSON.stringify(updatedUser, null, 2));
+    
+    res.json({ 
+      success: true, 
+      message: 'Onboarding completed successfully',
+      user: {
+        ...updatedUser,
+        // Parse JSON fields for frontend
+        officelocations: typeof updatedUser.officelocations === 'string' 
+          ? JSON.parse(updatedUser.officelocations) 
+          : updatedUser.officelocations,
+        keydepartments: typeof updatedUser.keydepartments === 'string' 
+          ? JSON.parse(updatedUser.keydepartments) 
+          : updatedUser.keydepartments
+      }
+    });
+
+  } catch (err) {
+    console.error('=== ONBOARDING ERROR ===');
+    console.error('Error details:', err);
+    console.error('Stack trace:', err.stack);
+    
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error during onboarding',
+      error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+    });
+  }
+});
+
+// Enhanced profile route with better data formatting
 router.get("/myprofile", jwtAuth, async (req, res) => {
   try {
+    console.log('=== PROFILE REQUEST ===');
     console.log('Fetching profile for user ID:', req.user.id);
     
-    // Explicitly select all fields we need
     const query = `
       SELECT 
         id, email, username, 
@@ -128,7 +227,6 @@ router.get("/myprofile", jwtAuth, async (req, res) => {
       WHERE id = $1
     `;
     
-    console.log('Executing query:', query);
     const result = await pool.query(query, [req.user.id]);
     
     if (result.rows.length === 0) {
@@ -137,9 +235,9 @@ router.get("/myprofile", jwtAuth, async (req, res) => {
     }
 
     const userData = result.rows[0];
-    console.log('User data from database:', JSON.stringify(userData, null, 2));
+    console.log('Raw user data from database:', JSON.stringify(userData, null, 2));
     
-    // Format the response data
+    // Format the response data and handle JSON parsing
     const responseData = {
       id: userData.id,
       email: userData.email,
@@ -147,43 +245,30 @@ router.get("/myprofile", jwtAuth, async (req, res) => {
       company_name: userData.company_name || '',
       sector: userData.sector || '',
       company_size: userData.company_size || '',
-      officelocations: userData.officelocations || [],
-      keydepartments: userData.keydepartments || [],
+      officelocations: userData.officelocations ? 
+        (typeof userData.officelocations === 'string' ? 
+          JSON.parse(userData.officelocations) : userData.officelocations) : [],
+      keydepartments: userData.keydepartments ? 
+        (typeof userData.keydepartments === 'string' ? 
+          JSON.parse(userData.keydepartments) : userData.keydepartments) : [],
       created_at: userData.created_at,
       updated_at: userData.updated_at,
-      onboarding_complete: userData.onboarding_complete || false
+      onboarding_complete: userData.onboarding_complete || false,
+      hasCompletedOnboarding: userData.onboarding_complete || false
     };
 
-    console.log('Sending response:', JSON.stringify(responseData, null, 2));
-    console.log('COMPLETE RESPONSE:', responseData);
+    console.log('Formatted response data:', JSON.stringify(responseData, null, 2));
     res.json({ user: responseData });
+
   } catch (error) {
-    console.error('Profile fetch error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-
-router.post('/onboarding/:userId', async (req, res) => {
-  const { userId } = req.params;
-  const { companyName, sector, companySize, officeLocations, keyDepartments } = req.body;
-
-  try {
-    const result = await pool.query(
-      `UPDATE users 
-       SET company_name = $1, sector = $2, company_size = $3, 
-           officelocations = $4, keydepartments = $5, onboarding_complete = $6
-       WHERE id = $7
-       RETURNING *`,
-      [companyName, sector, companySize, officeLocations, keyDepartments, true, userId]
-    );
+    console.error('=== PROFILE FETCH ERROR ===');
+    console.error('Error details:', error);
+    console.error('Stack trace:', error.stack);
     
-    res.json({ success: true, user: result.rows[0] });
-  } catch (err) {
-    console.error('Error saving onboarding data:', err);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({  
+      message: 'Server error', 
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
   }
 });
-
-
 module.exports = router;

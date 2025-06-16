@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { backendUrl } from "../lib/config";
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://singularity-100x-genai-buildathon.onrender.com';
+const API_URL = backendUrl;
 
 export const resumeService = {
   parseSingleResume: async (file: File) => {

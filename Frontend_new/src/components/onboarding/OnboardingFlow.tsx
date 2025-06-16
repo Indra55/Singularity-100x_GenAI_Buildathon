@@ -25,6 +25,7 @@ interface OnboardingFlowProps {
 const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }): JSX.Element => {
   const [currentStep, setCurrentStep] = useState(1);
   const [customDepartment, setCustomDepartment] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({
     companyName: "",
     sector: "",
@@ -79,30 +80,31 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }): 
   };
 
   const handleLocationKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && e.currentTarget.value) {
-      handleArrayToggle('officeLocations', e.currentTarget.value);
+    if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+      handleArrayToggle('officeLocations', e.currentTarget.value.trim());
       e.currentTarget.value = '';
     }
   };
 
   const handleLocationAdd = (e: MouseEvent<HTMLButtonElement>) => {
     const input = document.getElementById('location') as HTMLInputElement;
-    if (input.value) {
-      handleArrayToggle('officeLocations', input.value);
+    if (input.value.trim()) {
+      handleArrayToggle('officeLocations', input.value.trim());
       input.value = '';
     }
   };
 
   const handleCustomDepartmentKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && e.currentTarget.value) {
-      handleArrayToggle('keyDepartments', e.currentTarget.value);
+    if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+      handleArrayToggle('keyDepartments', e.currentTarget.value.trim());
       e.currentTarget.value = '';
+      setCustomDepartment('');
     }
   };
 
   const handleCustomDepartmentAdd = (e: MouseEvent<HTMLButtonElement>) => {
-    if (customDepartment) {
-      handleArrayToggle('keyDepartments', customDepartment);
+    if (customDepartment.trim()) {
+      handleArrayToggle('keyDepartments', customDepartment.trim());
       setCustomDepartment('');
     }
   };
@@ -116,35 +118,109 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }): 
   };
 
   const completeOnboarding = async () => {
-    const userId = localStorage.getItem("userId");
-  
-    if (!userId) {
-      toast({
-        title: "User ID missing!",
-        description: "Please sign in again.",
-        variant: "destructive",
-      });
-      return;
-    }
-  
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
+    
     try {
-      // Fix: Use correct endpoint that matches your backend route
-      await api.post(`/users/onboarding/${userId}`, onboardingData);
-      toast({
-        title: "Profile setup complete!",
-        description: "Welcome aboard. Let's get started!",
+      // Get user data from localStorage and parse it
+      const userData = localStorage.getItem("user");
+      const token = localStorage.getItem("token");
+      
+      if (!userData) {
+        toast({
+          title: "Authentication Error",
+          description: "Please sign in again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      let userId;
+      try {
+        const parsedUser = JSON.parse(userData);
+        userId = parsedUser.id;
+      } catch (parseError) {
+        console.error("Error parsing user data:", parseError);
+        toast({
+          title: "Data Error",
+          description: "Please sign in again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!userId) {
+        toast({
+          title: "User ID missing",
+          description: "Please sign in again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log("Submitting onboarding data:", {
+        userId,
+        data: onboardingData
       });
-      onComplete(onboardingData);
+
+      // Make API call with proper headers
+      const config = token ? {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      } : {};
+
+      const response = await api.post(`/users/onboarding/${userId}`, onboardingData, config);
+      
+      console.log("Onboarding response:", response.data);
+
+      if (response.data.success) {
+        // Update localStorage with the new user data
+        const updatedUser = {
+          ...JSON.parse(userData),
+          ...onboardingData,
+          onboarding_complete: true,
+          hasCompletedOnboarding: true
+        };
+        
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+        
+        toast({
+          title: "Profile setup complete!",
+          description: "Welcome aboard. Let's get started!",
+        });
+        
+        onComplete(onboardingData);
+      } else {
+        throw new Error(response.data.message || "Failed to save onboarding data");
+      }
+      
     } catch (error) {
       console.error("Failed to submit onboarding:", error);
+      
+      let errorMessage = "We couldn't save your profile. Please try again.";
+      
+      if (error.response) {
+        // Server responded with error status
+        errorMessage = error.response.data?.message || `Server error: ${error.response.status}`;
+        console.error("Server error response:", error.response.data);
+      } else if (error.request) {
+        // Request was made but no response received
+        errorMessage = "Network error. Please check your connection.";
+        console.error("Network error:", error.request);
+      }
+      
       toast({
         title: "Something went wrong",
-        description: "We couldn't save your profile. Try again.",
+        description: errorMessage,
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
-  
 
   const canProceed = () => {
     switch (currentStep) {
@@ -397,16 +473,16 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }): 
           <Button 
             variant="outline" 
             onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
-            disabled={currentStep === 1}
+            disabled={currentStep === 1 || isSubmitting}
           >
             Back
           </Button>
           <Button 
             onClick={nextStep}
-            disabled={!canProceed()}
+            disabled={!canProceed() || isSubmitting}
             className="bg-pulse-500 hover:bg-pulse-600"
           >
-            {currentStep === 5 ? 'Complete Setup' : 'Continue'}
+            {isSubmitting ? 'Saving...' : (currentStep === 5 ? 'Complete Setup' : 'Continue')}
           </Button>
         </div>
       </DialogContent>

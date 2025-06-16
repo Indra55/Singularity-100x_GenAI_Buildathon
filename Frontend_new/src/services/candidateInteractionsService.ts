@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { backendUrl } from "../lib/config";
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4100';
+const API_URL = backendUrl;
 
 export interface CandidateInteraction {
   id: number;
