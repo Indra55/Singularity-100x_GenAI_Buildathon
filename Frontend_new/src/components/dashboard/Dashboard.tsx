@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, type User } from "@/contexts/AuthContext";
 import { Candidate as BaseCandidate } from "@/services/candidateService";
 import { recordInteraction } from "@/services/candidateInteractionsService";
 import { storeGeneratedCandidate, getUserGeneratedCandidates, GeneratedCandidate } from "@/services/generatedCandidatesService";
@@ -28,6 +28,10 @@ const CandidateList = React.lazy(() => import("@/components/dashboard/CandidateL
     viewMode: 'list' | 'grid';
   }>
 })));
+
+// Main components
+const PipelineIntelligence = React.lazy(() => import("@/components/dashboard/PipelineIntelligence"));
+const AIInterviewerTraining = React.lazy(() => import("@/components/dashboard/AIInterviewerTraining"));
 const CandidateSearch = React.lazy(() => import("@/components/dashboard/CandidateSearch"));
 const SwipeableCardStack = React.lazy(() => import("@/components/dashboard/SwipeableCardStack"));
 const ResumeParser = React.lazy(() => import("@/components/dashboard/ResumeParser"));
@@ -35,11 +39,10 @@ const OutreachCenter = React.lazy(() => import("@/components/dashboard/OutreachC
 const Analytics = React.lazy(() => import("@/components/dashboard/Analytics"));
 const AIInterview = React.lazy(() => import("@/components/dashboard/AIInterview"));
 const JDMaker = React.lazy(() => import("@/components/dashboard/JDMaker"));
-const PipelineIntelligence = React.lazy(() => import("@/components/dashboard/PipelineIntelligence"));
-const AIInterviewerTraining = React.lazy(() => import("@/components/dashboard/AIInterviewerTraining"));
+const AITraining = React.lazy(() => import("@/components/dashboard/training/EnhancedTrainingModule"));
 
 interface DashboardProps {
-  user?: any; // Consider defining a proper User type
+  user?: User;
 }
 
 const Dashboard: React.FC<DashboardProps> = () => {
@@ -159,124 +162,200 @@ const Dashboard: React.FC<DashboardProps> = () => {
     handleCandidateSelect(candidate);
   }, [handleCandidateSelect]);
 
-  const renderCandidateCard = useCallback((candidate: Candidate, onViewMore: () => void) => (
-    <Card className="w-full h-full flex flex-col">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Avatar className="h-12 w-12">
-              {candidate.profile_pic ? (
-                <AvatarImage src={candidate.profile_pic} alt={candidate.name} />
-              ) : null}
-              <AvatarFallback>{candidate.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-            </Avatar>
-            <div>
-              <h3 className="font-semibold">{candidate.name}</h3>
-              <p className="text-sm text-gray-600">{candidate.title}</p>
-              <p className="text-xs text-gray-500">{candidate.company}</p>
-            </div>
-          </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="text-pulse-600 hover:text-pulse-700"
-            onClick={(e) => {
-              e.stopPropagation();
-              onViewMore();
-            }}
-          >
-            <ExternalLink className="w-4 h-4 mr-1" />
-            <span>View More</span>
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="flex-1 overflow-y-auto">
-        <div className="space-y-3">
-          <div className="flex items-center text-sm text-gray-600">
-            <MapPin className="w-4 h-4 mr-2" />
-            <span>{candidate.location || 'Location not specified'}</span>
-          </div>
-          <div className="flex items-center text-sm text-gray-600">
-            <Briefcase className="w-4 h-4 mr-2" />
-            <span>{candidate.years_of_experience || '0'} years experience</span>
-          </div>
+  const renderCandidateCard = useCallback((candidate: Candidate, onViewMore: () => void) => {
+    // Function to get a consistent random human photo based on candidate ID
+    const getRandomHumanPhoto = (id: string) => {
+      const seed = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      return `https://picsum.photos/seed/${seed}/200/200`;
+    };
+  
+    // Get vibrant colors based on candidate name
+    const getVibrantColors = (name: string) => {
+      const colorSets = [
+        { bg: 'bg-yellow-400', border: 'border-yellow-500', accent: 'bg-blue-600' },
+        { bg: 'bg-pink-400', border: 'border-pink-500', accent: 'bg-green-600' },
+        { bg: 'bg-orange-600', border: 'border-orange-600', accent: 'bg-red-600', customBg: '#ea580c' },
+        { bg: 'bg-lime-400', border: 'border-lime-500', accent: 'bg-purple-600' },
+        { bg: 'bg-orange-600', border: 'border-orange-600', accent: 'bg-indigo-600', customBg: '#ea580c' },
+        { bg: 'bg-emerald-400', border: 'border-emerald-500', accent: 'bg-rose-600' }
+      ];
+      const index = name.length % colorSets.length;
+      return colorSets[index];
+    };
+  
+    const colors = getVibrantColors(candidate.name);
+  
+    return (
+      <div className="group relative w-full h-full">
+        {/* Main card with brutalist styling */}
+        <div 
+          className={`relative w-full h-full border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] transition-all duration-200 hover:-translate-x-1 hover:-translate-y-1 font-mono`}
+          style={{ backgroundColor: colors.customBg || '' }}
+        >
           
-          {candidate.summary && (
-            <div className="mt-2">
-              <h4 className="text-sm font-medium text-gray-700 mb-1">Summary</h4>
-              <p className="text-sm text-gray-600 line-clamp-3">{candidate.summary}</p>
-            </div>
-          )}
-          
-          {candidate.skills?.length > 0 && (
-            <div className="mt-2">
-              <h4 className="text-sm font-medium text-gray-700 mb-1">Skills</h4>
-              <div className="flex flex-wrap gap-1">
-                {candidate.skills.slice(0, 5).map((skill, index) => (
-                  <Badge key={index} variant="secondary" className="text-xs">
-                    {skill}
-                  </Badge>
-                ))}
-                {candidate.skills.length > 5 && (
-                  <Badge variant="outline" className="text-xs">
-                    +{candidate.skills.length - 5} more
-                  </Badge>
-                )}
+          {/* Top section with avatar */}
+          <div className="relative p-6 pb-4">
+            {/* Avatar container */}
+            <div className="flex justify-center mb-6">
+              <div className="relative">
+                <div className={`w-24 h-24 ${colors.accent} border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center overflow-hidden`}>
+                  <Avatar className="w-full h-full rounded-none border-0">
+                    <AvatarImage 
+                      src={candidate.profile_pic} 
+                      alt={candidate.name} 
+                      className="object-cover w-full h-full"
+                    />
+                    <AvatarFallback className={`${colors.accent} rounded-none text-white text-2xl font-bold`}>
+                      <img 
+                        src={getRandomHumanPhoto(candidate.id)} 
+                        alt={candidate.name} 
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = `https://i.pravatar.cc/150?u=${candidate.id}`;
+                          target.style.display = 'none';
+                          target.parentElement.innerHTML = '😊';
+                        }}
+                      />
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
               </div>
             </div>
-          )}
-          
-          <div className="flex justify-between items-center pt-2">
-            <div className="flex space-x-2">
-              {candidate.social_links?.linkedin && (
-                <a 
-                  href={candidate.social_links.linkedin}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-500 hover:text-blue-600"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <Linkedin className="w-4 h-4" />
-                </a>
-              )}
-              {candidate.social_links?.github && (
-                <a 
-                  href={candidate.social_links.github}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-500 hover:text-gray-800"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <Github className="w-4 h-4" />
-                </a>
-              )}
-              {candidate.social_links?.portfolio && (
-                <a 
-                  href={candidate.social_links.portfolio}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-500 hover:text-purple-600"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </a>
+  
+            {/* Name and title */}
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-bold text-black uppercase tracking-wide">
+                {candidate.name}
+              </h3>
+              <p className="text-sm font-bold text-black uppercase tracking-wider">
+                {candidate.title}
+              </p>
+              {candidate.company && (
+                <p className="text-xs font-bold text-black/80 uppercase">
+                  {candidate.company}
+                </p>
               )}
             </div>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelect(candidate);
-              }}
-            >
-              Select
-            </Button>
+          </div>
+  
+          {/* White section */}
+          <div className="bg-white border-t-4 border-black mx-0 min-h-[120px] flex flex-col">
+            
+            {/* Info grid */}
+            <div className="p-4 flex-1">
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="text-center p-2 border-2 border-black bg-gray-100">
+                  <MapPin className="w-4 h-4 mx-auto mb-1" />
+                  <p className="text-xs font-bold uppercase truncate">
+                    {candidate.location || 'Remote'}
+                  </p>
+                </div>
+                <div className="text-center p-2 border-2 border-black bg-gray-100">
+                  <Briefcase className="w-4 h-4 mx-auto mb-1" />
+                  <p className="text-xs font-bold uppercase">
+                    {candidate.years_of_experience || '0'}Y EXP
+                  </p>
+                </div>
+              </div>
+  
+              {/* Summary box */}
+              {candidate.summary && (
+                <div className="border-2 border-black border-dashed p-3 mb-4 bg-gray-50">
+                  <p className="text-xs leading-relaxed text-center font-medium line-clamp-3">
+                    {candidate.summary}
+                  </p>
+                </div>
+              )}
+  
+              {/* Skills as tags */}
+              {candidate.skills?.length > 0 && (
+                <div className="flex flex-wrap gap-1 justify-center mb-4">
+                  {candidate.skills.slice(0, 4).map((skill, index) => (
+                    <span
+                      key={index}
+                      className="px-2 py-1 text-xs font-bold bg-black text-white uppercase tracking-wide"
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                  {candidate.skills.length > 4 && (
+                    <span className="px-2 py-1 text-xs font-bold border-2 border-black bg-white uppercase">
+                      +{candidate.skills.length - 4}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+  
+            {/* Bottom section */}
+            <div className="p-4 pt-2 border-t-2 border-black bg-gray-50">
+              <div className="flex justify-between items-center">
+                {/* Social links */}
+                <div className="flex space-x-2">
+                  {candidate.social_links?.linkedin && (
+                    <a 
+                      href={candidate.social_links.linkedin}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-8 h-8 bg-black text-white flex items-center justify-center hover:bg-gray-800 transition-colors duration-200"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <Linkedin className="w-4 h-4" />
+                    </a>
+                  )}
+                  {candidate.social_links?.github && (
+                    <a 
+                      href={candidate.social_links.github}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-8 h-8 bg-black text-white flex items-center justify-center hover:bg-gray-800 transition-colors duration-200"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <Github className="w-4 h-4" />
+                    </a>
+                  )}
+                  {candidate.social_links?.portfolio && (
+                    <a 
+                      href={candidate.social_links.portfolio}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-8 h-8 bg-black text-white flex items-center justify-center hover:bg-gray-800 transition-colors duration-200"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
+                </div>
+  
+                {/* View profile button */}
+                <Button
+                  className="bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-4 border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 transition-all duration-200 uppercase text-xs tracking-wide"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewMore();
+                  }}
+                >
+                  View Profile
+                </Button>
+              </div>
+  
+              {/* Select button */}
+              <Button
+                className="w-full mt-3 bg-black hover:bg-gray-800 text-white font-bold py-3 px-4 border-0 shadow-none uppercase text-sm tracking-wider transition-colors duration-200"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelect(candidate);
+                }}
+              >
+                SELECT CANDIDATE
+              </Button>
+            </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
-  ), [onSelect]);
+      </div>
+    );
+  }, [onSelect]);
 
   const renderSearchView = () => (
     <div className="space-y-6">
@@ -324,34 +403,43 @@ const Dashboard: React.FC<DashboardProps> = () => {
   const renderContent = () => {
     switch (activeView) {
       case 'search':
-        return viewMode === 'search' ? renderSearchView() : renderSwipeView();
+        return renderSearchView();
       case 'candidates':
         return (
-          <CandidateList
+          <CandidateList 
             candidates={candidates}
-            onSelect={onSelect}
+            onSelect={handleCandidateSelect}
             selectedCandidates={selectedCandidates}
-            viewMode={viewMode}
+            viewMode="list"
           />
         );
       case 'parser':
-        return <ResumeParser />;
+        return <ResumeParser user={user} />;
       case 'jd':
-        return <JDMaker />;
+        return <JDMaker user={user} />;
       case 'interview':
         return <AIInterview user={user} />;
       case 'outreach':
-        return <OutreachCenter />;
+        return (
+          <OutreachCenter 
+            selectedCandidates={selectedCandidates}
+            onCandidateRemove={(id: string) => setSelectedCandidates(prev => prev.filter(c => c.id !== id))}
+            userId={user?.id}
+          />
+        );
       case 'pipeline':
-        return <PipelineIntelligence user={user} />;
+        return (
+          <Suspense fallback={<div>Loading pipeline intelligence...</div>}>
+            <PipelineIntelligence user={user} />
+          </Suspense>
+        );
       case 'training':
-        return <AIInterviewerTraining user={user} />;
-      case 'analytics':
-        return <Analytics />;
-      case 'saved':
-        return <ChatInterface />;
-      default:
-        return renderSearchView();
+        return (
+          <Suspense fallback={<div>Loading AI Interviewer Training...</div>}>
+            <AIInterviewerTraining user={user} />
+          </Suspense>
+        );
+      // ...
     }
   };
 

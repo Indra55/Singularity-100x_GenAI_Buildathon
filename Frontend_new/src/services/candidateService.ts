@@ -8,6 +8,7 @@ export interface Candidate {
   company: string;
   location: string;
   years_of_experience: number;
+  photo?: string;
   skills: string[];
   work_preference: string;
   summary: string;

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,9 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { evaluateQuestion, generateReport, CoachPersonality, DifficultyLevel, FocusArea } from "@/services/interviewService";
+import { v4 as uuidv4 } from 'uuid';
+import styles from './EnhancedAICoach.module.css';
 import { 
   Send, 
   Mic, 
@@ -49,6 +51,12 @@ interface Message {
   content: string;
   isUser: boolean;
   timestamp: Date;
+  feedback?: {
+    score?: number;
+    strengths?: string[];
+    improvements?: string[];
+    suggestions?: string[];
+  };
   type?: 'coaching' | 'suggestion' | 'question' | 'feedback' | 'tip' | 'scenario' | 'analysis';
   score?: number;
   sentiment?: 'positive' | 'neutral' | 'constructive';
@@ -75,12 +83,12 @@ const EnhancedAICoach = ({ scenario, onComplete, userProgress, currentModule }: 
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: "🎯 Welcome to your Advanced AI Interviewer Coach! I'm Alex, your personal training companion. I adapt to your learning style and provide real-time insights. Let's start with a challenging scenario: You're interviewing a senior developer who seems overconfident and is dismissing your technical questions. How do you handle this situation while maintaining professionalism?",
+      content: "🎯 Welcome to your AI Interview Coach! I'm here to help you practice and improve your interviewing skills.\n\n## How This Works\n- I'll help you practice common interview scenarios\n- You can type your responses to my questions\n- I'll provide feedback on your answers\n- Use the controls to adjust difficulty and focus areas\n\n## Let's Get Started!\n\nI'll be playing the role of a candidate. You can start by asking me interview questions or describing a scenario you'd like to practice. What would you like to work on today?",
       isUser: false,
       timestamp: new Date(),
       type: 'coaching',
       aiPersonality: 'mentor',
-      tags: ['difficult-candidates', 'professionalism']
+      tags: ['welcome', 'instructions']
     }
   ]);
   
@@ -96,6 +104,9 @@ const EnhancedAICoach = ({ scenario, onComplete, userProgress, currentModule }: 
   const [conversationDepth, setConversationDepth] = useState(0);
   const [sessionTime, setSessionTime] = useState(0);
   const [isSessionActive, setIsSessionActive] = useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [sessionReport, setSessionReport] = useState<string | null>(null);
+  const [sessionId] = useState<string>(() => `session_${uuidv4()}`);
   
   // Enhanced metrics
   const [interviewerScore, setInterviewerScore] = useState(78);
@@ -188,7 +199,7 @@ const EnhancedAICoach = ({ scenario, onComplete, userProgress, currentModule }: 
       ]
     };
 
-    const personalityResponses = responses[personality] || responses.mentor;
+    const personalityResponses = responses[personality as keyof typeof responses] || responses.mentor;
     const baseResponse = personalityResponses[Math.floor(Math.random() * personalityResponses.length)];
     
     // Add specific coaching based on focus area
@@ -200,7 +211,7 @@ const EnhancedAICoach = ({ scenario, onComplete, userProgress, currentModule }: 
       all: " Consider the holistic interview experience - technical assessment, cultural fit, communication skills, and growth potential."
     };
 
-    return baseResponse + (focusSpecificAdvice[focusArea] || focusSpecificAdvice.all);
+    return baseResponse + (focusSpecificAdvice[focusArea as keyof typeof focusSpecificAdvice] || focusSpecificAdvice.all);
   };
 
   // Real-time insight generation
@@ -230,7 +241,59 @@ const EnhancedAICoach = ({ scenario, onComplete, userProgress, currentModule }: 
     return insights;
   };
 
-  const handleSendMessage = () => {
+  const renderMessageContent = (message: Message) => {
+    if (!message.content) return null;
+    
+    // Ensure content is a string before splitting
+    const content = typeof message.content === 'string' ? message.content : String(message.content);
+    
+    // Split content into lines and process each line
+    return (
+      <div>
+        {content.split('\n').map((line, i) => {
+          // Skip empty lines
+          if (!line.trim()) return null;
+          
+          // Headers
+          if (line.startsWith('## ')) {
+            return <h2 key={i} className="text-base font-bold mt-6 mb-3">{line.substring(3)}</h2>;
+          }
+          if (line.startsWith('# ')) {
+            return <h1 key={i} className="text-lg font-bold mt-8 mb-4">{line.substring(2)}</h1>;
+          }
+          
+          // Code blocks
+          if (line.startsWith('```')) {
+            return (
+              <pre key={i} className="bg-gray-100 p-4 rounded-md my-2 overflow-x-auto">
+                <code>{line.substring(3)}</code>
+              </pre>
+            );
+          }
+          
+          // Lists
+          if (line.startsWith('- ')) {
+            return <li key={i} className="ml-4 list-disc">{line.substring(2)}</li>;
+          }
+          
+          // Numbered lists
+          if (/^\d+\.\s/.test(line)) {
+            return <li key={i} className="ml-4 list-decimal">{line.substring(line.indexOf(' ') + 1)}</li>;
+          }
+          
+          // Bold and italic
+          const boldItalic = line
+            .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>');
+          
+          return <p key={i} className="mb-2" dangerouslySetInnerHTML={{ __html: boldItalic }} />;
+        })}
+      </div>
+    );
+  };
+
+  const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
     
     if (!isSessionActive) setIsSessionActive(true);
@@ -248,33 +311,86 @@ const EnhancedAICoach = ({ scenario, onComplete, userProgress, currentModule }: 
     setInputMessage("");
     setIsAnalyzing(true);
 
-    // Generate insights
-    const newInsights = generateInsights(messages.length, inputMessage);
-    setCurrentInsights(newInsights);
+    try {
+      // Call the backend API
+      const response = await evaluateQuestion({
+        sessionId,
+        coachPersonality,
+        level: difficulty,
+        focusArea,
+        scenarioType: currentScenario,
+        query: inputMessage
+      });
 
-    // Simulate advanced AI analysis
-    setTimeout(() => {
-      const aiResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        content: generateAdvancedCoachingResponse(inputMessage, coachPersonality),
-        isUser: false,
-        timestamp: new Date(),
-        type: conversationDepth > 3 ? 'analysis' : 'coaching',
-        score: Math.floor(Math.random() * 20) + 80,
-        sentiment: 'positive',
-        aiPersonality: coachPersonality,
-        tags: [focusArea, difficulty]
+      // Extract the response text from the API response structure
+      let responseContent = '';
+      if (response && typeof response === 'object') {
+        // Handle the specific response format with 'response' and 'history' properties
+        if ('response' in response && response.response) {
+          responseContent = response.response;
+        } 
+        // Fallback to other possible response formats
+        else if ('message' in response) {
+          responseContent = response.message;
+        } else if ('content' in response) {
+          responseContent = response.content;
+        } else {
+          // If we can't find a message, stringify the whole response
+          responseContent = JSON.stringify(response);
+        }
+      } else if (typeof response === 'string') {
+        // If it's already a string, use it as is
+        responseContent = response;
+      } else {
+        // Fallback for any other type
+        responseContent = String(response);
+      }
+
+      // Process the AI response with markdown formatting
+      const feedback = {
+        score: 7, // This would come from the API in a real implementation
+        strengths: ['Good question structure', 'Relevant to role'],
+        improvements: ['Could dive deeper into technical specifics', 'Consider adding a follow-up question'],
+        suggestions: ['Ask about specific technologies used', 'Request a real-world example']
       };
 
-      setMessages(prev => [...prev, aiResponse]);
-      setIsAnalyzing(false);
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: responseContent,
+        isUser: false,
+        timestamp: new Date(),
+        feedback
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+      
+      // Generate insights based on the conversation
+      const newInsights = generateInsights(messages.length, inputMessage);
+      setCurrentInsights(newInsights);
+      
+      // Update metrics
       updateMetricsAdvanced();
       
       // Voice feedback if enabled
       if (voiceEnabled) {
-        speakResponse(aiResponse.content);
+        speakResponse(aiMessage.content);
       }
-    }, 1500 + Math.random() * 1000);
+    } catch (error) {
+      console.error('Error getting AI response:', error);
+      // Fallback to local response if API fails
+      const fallbackResponse = `## Coaching Tips\n\nI'm here to help you improve your interviewing skills. Here are some key principles to keep in mind:\n\n### Key Principles\n- **Be specific** - Ask for concrete examples\n- **Use the STAR method** - Situation, Task, Action, Result\n- **Stay objective** - Focus on skills and experience\n- **Be consistent** - Ask all candidates similar questions\n\n### Try This\nAsk me to evaluate a question or practice an interview scenario with you!`;
+      
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: fallbackResponse,
+        isUser: false,
+        timestamp: new Date(),
+      };
+      
+      setMessages(prev => [...prev, aiMessage]);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const updateMetricsAdvanced = () => {
@@ -311,6 +427,53 @@ const EnhancedAICoach = ({ scenario, onComplete, userProgress, currentModule }: 
     }
   };
 
+  const generateSessionReport = async () => {
+    if (!sessionId) return;
+    
+    setIsGeneratingReport(true);
+    try {
+      const report = await generateReport(sessionId);
+      setSessionReport(report);
+      
+      // Create a blob and download the report
+      const blob = new Blob([report], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `interview-session-${new Date().toISOString().split('T')[0]}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+    } catch (error) {
+      console.error('Error generating report:', error);
+      // Fallback to a simple report
+      const simpleReport = `Interview Session Report\n\n` +
+        `Date: ${new Date().toLocaleString()}\n` +
+        `Duration: ${Math.floor(sessionTime / 60)}m ${sessionTime % 60}s\n` +
+        `Scenario: ${currentScenario}\n` +
+        `Conversation Depth: ${conversationDepth} turns\n\n` +
+        `Performance Metrics:\n` +
+        `- Interviewer Score: ${interviewerScore}/100\n` +
+        `- Questioning Skills: ${questioningSkills}/100\n` +
+        `- Bias Detection: ${biasDetection}/100\n` +
+        `- Time Management: ${timeManagement}/100\n` +
+        `- Communication Style: ${communicationStyle}/100\n\n` +
+        `Key Insights:\n` +
+        currentInsights.map(insight => `- ${insight.title}: ${insight.description}`).join('\n');
+      
+      setSessionReport(simpleReport);
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
+  const handleEndSession = async () => {
+    setIsSessionActive(false);
+    await generateSessionReport();
+  };
+
   const toggleRecording = () => {
     setIsRecording(!isRecording);
     if (!isRecording) {
@@ -323,7 +486,7 @@ const EnhancedAICoach = ({ scenario, onComplete, userProgress, currentModule }: 
   };
 
   const generateNewScenario = () => {
-    const scenarios = scenarioDatabase[currentScenario] || scenarioDatabase['difficult-candidate'];
+    const scenarios = scenarioDatabase[currentScenario as keyof typeof scenarioDatabase] || scenarioDatabase['difficult-candidate'];
     const newScenario = scenarios[Math.floor(Math.random() * scenarios.length)];
     
     const scenarioMessage: Message = {
@@ -377,7 +540,7 @@ const EnhancedAICoach = ({ scenario, onComplete, userProgress, currentModule }: 
               <div>
                 <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 flex items-center gap-2">
                   Advanced AI Coach
-                  <Sparkles className="w-5 h-5 lg:w-6 lg:h-6 text-yellow-500" />
+                  <Sparkles className="w-5 h-5 text-yellow-500" />
                 </h1>
                 <p className="text-sm lg:text-base text-gray-600">
                   Personality: <Badge variant="outline" className="ml-1">{coachPersonality}</Badge>
@@ -480,8 +643,8 @@ const EnhancedAICoach = ({ scenario, onComplete, userProgress, currentModule }: 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-6">
           {/* Enhanced Chat Interface */}
           <div className="xl:col-span-2 order-1">
-            <Card className="h-[70vh] sm:h-[80vh] flex flex-col shadow-xl border-0">
-              <CardHeader className="p-4 lg:p-6 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+            <Card className="h-[70vh] min-h-[500px] flex flex-col shadow-xl border-0 overflow-hidden">
+              <CardHeader className="p-4 lg:p-6 border-b bg-gradient-to-r from-blue-50 to-indigo-50 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="flex items-center gap-2 text-lg lg:text-xl">
@@ -496,21 +659,39 @@ const EnhancedAICoach = ({ scenario, onComplete, userProgress, currentModule }: 
                       Depth Level: {conversationDepth} • Flow: {conversationFlow}
                     </CardDescription>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={generateNewScenario}
-                    className="bg-blue-50 border-blue-200 hover:bg-blue-100"
-                  >
-                    <RefreshCw className="w-4 h-4 mr-1" />
-                    New Scenario
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleEndSession}
+                      className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                      disabled={isGeneratingReport}
+                    >
+                      {isGeneratingReport ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                          Generating Report...
+                        </>
+                      ) : (
+                        'End Session'
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={generateNewScenario}
+                      className="bg-blue-50 border-blue-200 hover:bg-blue-100"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-1" />
+                      New Scenario
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               
-              <CardContent className="flex-1 flex flex-col p-0">
+              <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
                 {/* Enhanced Messages Container */}
-                <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   {messages.map((message) => (
                     <div
                       key={message.id}
@@ -524,44 +705,40 @@ const EnhancedAICoach = ({ scenario, onComplete, userProgress, currentModule }: 
                         </Avatar>
                       )}
                       
-                      <div className={`max-w-[85%] sm:max-w-[80%] lg:max-w-[75%] ${message.isUser ? 'order-first' : ''}`}>
+                      <div className={`max-w-[80%] ${message.isUser ? 'order-first' : ''}`}>
                         <div
-                          className={`p-3 lg:p-4 rounded-2xl text-sm lg:text-base leading-relaxed ${
+                          className={`p-4 lg:p-5 rounded-xl text-sm lg:text-base leading-relaxed ${
                             message.isUser
-                              ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white'
-                              : `${
-                                  message.type === 'scenario' ? 'bg-gradient-to-r from-purple-100 to-pink-100 border border-purple-200' :
-                                  message.type === 'analysis' ? 'bg-gradient-to-r from-green-100 to-emerald-100 border border-green-200' :
-                                  'bg-gray-50 border border-gray-200'
-                                } text-gray-900`
+                              ? 'bg-blue-600 text-white rounded-tr-none'
+                              : 'bg-gray-50 border border-gray-200 rounded-tl-none'
                           }`}
                         >
-                          {message.content}
-                        </div>
+                          {renderMessageContent(message)}
                         
-                        <div className="flex items-center gap-2 mt-2 text-xs text-gray-500 flex-wrap">
-                          <span>{message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                          {message.type && (
-                            <Badge variant="outline" className="text-xs px-2 py-0">
-                              {message.type}
-                            </Badge>
-                          )}
-                          {message.aiPersonality && !message.isUser && (
-                            <Badge variant="outline" className="text-xs px-2 py-0">
-                              {message.aiPersonality}
-                            </Badge>
-                          )}
-                          {message.score && (
-                            <div className="flex items-center gap-1">
-                              <Star className="w-3 h-3 text-yellow-500" />
-                              <span>{message.score}%</span>
-                            </div>
-                          )}
-                          {message.tags && message.tags.map(tag => (
-                            <Badge key={tag} variant="outline" className="text-xs px-1 py-0">
-                              {tag}
-                            </Badge>
-                          ))}
+                          <div className="flex items-center gap-2 mt-2 text-xs text-gray-500 flex-wrap">
+                            <span>{message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            {message.type && (
+                              <Badge variant="outline" className="text-xs px-2 py-0">
+                                {message.type}
+                              </Badge>
+                            )}
+                            {message.aiPersonality && !message.isUser && (
+                              <Badge variant="outline" className="text-xs px-2 py-0">
+                                {message.aiPersonality}
+                              </Badge>
+                            )}
+                            {message.score && (
+                              <div className="flex items-center gap-1">
+                                <Star className="w-3 h-3 text-yellow-500" />
+                                <span>{message.score}%</span>
+                              </div>
+                            )}
+                            {message.tags && message.tags.map(tag => (
+                              <Badge key={tag} variant="outline" className="text-xs px-1 py-0">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
                         </div>
                       </div>
                       
@@ -594,7 +771,7 @@ const EnhancedAICoach = ({ scenario, onComplete, userProgress, currentModule }: 
                 </div>
 
                 {/* Enhanced Input Area */}
-                <div className="border-t bg-gradient-to-r from-gray-50 to-blue-50 p-4">
+                <div className="border-t bg-gradient-to-r from-gray-50 to-blue-50 p-4 flex-shrink-0">
                   <div className="space-y-3">
                     <div className="flex gap-2">
                       <Textarea

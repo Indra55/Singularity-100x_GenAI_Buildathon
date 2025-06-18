@@ -26,12 +26,7 @@ import CandidateFlow from "./pipeline/CandidateFlow";
 import OfferManagement from "./pipeline/OfferManagement";
 import PipelineAnalytics from "./pipeline/PipelineAnalytics";
 import { useToast } from "@/hooks/use-toast";
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-}
+import { type User } from "@/contexts/AuthContext";
 
 interface PipelineIntelligenceProps {
   user: User;

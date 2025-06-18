@@ -10,6 +10,7 @@ import InteractiveSimulator from "./training/InteractiveSimulator";
 import AICoachAssistant from "./training/AICoachAssistant";
 import { trainingModules } from "./training/trainingData";
 import { Brain, Video, BarChart3, Bot } from "lucide-react";
+import { type User } from "@/contexts/AuthContext";
 
 interface ModuleProgressData {
   completed: boolean;
@@ -19,11 +20,6 @@ interface ModuleProgressData {
 
 interface ModuleProgressState {
   [moduleId: string]: ModuleProgressData;
-}
-
-interface User {
-  id?: string;
-  name?: string;
 }
 
 interface AIInterviewerTrainingProps {
