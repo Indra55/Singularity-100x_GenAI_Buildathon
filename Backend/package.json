@@ -12,9 +12,12 @@
   "description": "",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@langchain/core": "^0.3.59",
+    "@langchain/google-genai": "^0.2.12",
     "adm-zip": "^0.5.16",
     "axios": "^1.9.0",
     "bcrypt": "^6.0.0",
+    "body-parser": "^2.2.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
@@ -24,6 +27,7 @@
     "multer": "^2.0.1",
     "nodemon": "^3.1.10",
     "pdf-parse": "^1.1.1",
+    "pdfkit": "^0.17.1",
     "pg": "^8.16.0",
     "resend": "^4.5.2",
     "sib-api-v3-sdk": "^8.5.0"

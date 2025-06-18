@@ -3,7 +3,6 @@ const app = express();
 const cors = require("cors");
 require("dotenv").config();
 
-// Import routes
 const flaskProxyRouter = require("./routes/flaskProxyRoutes");
 const outreachRoutes = require("./routes/outreach");
 const jdRoutes = require('./routes/jd');
@@ -12,8 +11,8 @@ const resumeRoutes = require('./routes/resume');
 const talentPoolRoutes = require('./routes/talentPool');
 const candidateInteractionsRoutes = require('./routes/candidateInteractions');
 const generatedCandidatesRoutes = require('./routes/generatedCandidates');
+const interviewRoutes = require('./routes/interview');
 
-// CORS configuration
 const allowedOrigins = [
   "https://singularity-100x-gen-ai-buildathon.vercel.app",
   "http://localhost:8081"
@@ -21,7 +20,6 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
@@ -34,16 +32,13 @@ app.use(cors({
   credentials: true
 }));
 
-// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); 
 
-// Simple route for health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Routes
 app.use("/users", usersRoutes);
 app.use('/candidates', flaskProxyRouter);
 app.use("/outreach", outreachRoutes);
@@ -52,8 +47,8 @@ app.use("/resume", resumeRoutes);
 app.use("/talent-pool", talentPoolRoutes);
 app.use("/candidate-interactions", candidateInteractionsRoutes);
 app.use("/generated-candidates", generatedCandidatesRoutes);
+app.use("/interview", interviewRoutes);
 
-// Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({
@@ -62,7 +57,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 404 handler
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });

@@ -22,7 +22,7 @@ candidates_bp = Blueprint('candidates_embeddings', __name__)
 class EnhancedPostgresVectorSearch:
     def __init__(self, 
                  database_url: str,
-                 model_name: str = 'paraphrase-MiniLM-L6-v2'):  # Better model
+                 model_name: str = 'all-mpnet-base-v2'):  # Better model
         
         # Use better models for higher quality embeddings
         # Options: 'all-mpnet-base-v2', 'all-MiniLM-L12-v2', 'multi-qa-mpnet-base-dot-v1'
