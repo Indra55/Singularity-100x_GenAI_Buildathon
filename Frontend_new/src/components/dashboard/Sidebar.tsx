@@ -10,7 +10,9 @@ import {
   Settings,
   HelpCircle,
   Video,
-  Briefcase
+  Briefcase,
+  TrendingUp,
+  GraduationCap
 } from "lucide-react";
 
 const Sidebar = ({ activeView, onViewChange }) => {
@@ -21,6 +23,8 @@ const Sidebar = ({ activeView, onViewChange }) => {
     { id: 'jd', label: 'JD Maker', icon: Briefcase },
     { id: 'interview', label: 'AI Interview', icon: Video },
     { id: 'outreach', label: 'Outreach Center', icon: MessageSquare },
+    { id: 'pipeline', label: 'Pipeline Intelligence', icon: TrendingUp },
+    { id: 'training', label: 'AI Interviewer Training', icon: GraduationCap },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'saved', label: 'Saved Searches', icon: Bookmark },
   ];
