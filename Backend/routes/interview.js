@@ -6,104 +6,67 @@ const { ChatGoogleGenerativeAI } = require("@langchain/google-genai");
 const { PromptTemplate } = require("@langchain/core/prompts");
 const { StringOutputParser } = require("@langchain/core/output_parsers");
 
-
 const router = express.Router();
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 const llm = new ChatGoogleGenerativeAI({
-  model: "models/gemini-2.0-flash-lite",
+  model: "gemini-2.0-flash-exp", // Updated model name
   apiKey: GEMINI_API_KEY,
+  temperature: 0.7, // Add some creativity
 });
 
 const parser = new StringOutputParser();
 const sessionHistories = {};
 
-// Enhanced Templates
-const SYSTEM_PROMPT = `You are an expert AI Interview Coach specializing in technical recruitment. Your role is to help recruiters and hiring managers improve their interviewing skills through realistic practice scenarios and personalized feedback.
+// Improved System Prompt - More conversational and scenario-driven
+const COACHING_PROMPT = `You are an expert AI Interview Coach helping recruiters practice their interviewing skills. You're conducting a realistic training session.
 
-Key Principles:
-1. Focus on structured, behavior-based interviewing techniques
-2. Emphasize technical assessment best practices
-3. Guide on evaluating both technical and soft skills
-4. Provide actionable, specific feedback
-5. Maintain a professional yet supportive tone
-
-Response Guidelines:
-- Keep responses concise and to the point
-- Use markdown for formatting (bold, lists, code blocks)
-- Provide specific examples when giving feedback
-- Focus on one key learning point at a time
-- Include relevant industry best practices`;
-
-const COACHING_PROMPT = `# Interview Coach Response
-
-## Context
+## Current Training Context:
 - **Coach Style**: {coach_personality}
-- **Difficulty**: {level}
+- **Difficulty Level**: {level}
 - **Focus Area**: {focus_area}
-- **Scenario**: {scenario_type}
+- **Scenario Type**: {scenario_type}
 
-## Conversation History
+## Previous Conversation:
 {previous_response}
 
-## Current Interaction
-**User**: {query}
+## Recruiter's Input:
+{query}
 
-## Your Task
-1. Analyze the user's message for:
-   - Technical accuracy
-   - Interview technique
-   - Question quality
-   - Bias awareness
-   - Candidate experience
+## Your Role:
+Act as both a coach AND the candidate being interviewed (when appropriate). Provide realistic responses and immediate feedback.
 
-2. Provide:
-   - Specific, actionable feedback
-   - Alternative approaches
-   - Relevant examples
-   - Next steps for improvement
+## Instructions:
+1. If the recruiter asks a question, respond AS THE CANDIDATE first, then provide coaching feedback
+2. If the recruiter needs guidance, provide specific, actionable advice
+3. Keep responses conversational and engaging
+4. Point out both strengths and areas for improvement
+5. Suggest better question alternatives when needed
 
-## Response Format
-- Use markdown for formatting
-- Keep it concise (2-3 paragraphs max)
-- Focus on 1-2 key learning points
-- Include a clear call-to-action or question to continue the learning`;
+## Response Format:
+**[CANDIDATE RESPONSE]:** [Realistic candidate answer based on scenario]
 
-const REPORT_PROMPT = `# Interview Performance Analysis
+**[COACH FEEDBACK]:** [Your analysis and suggestions]
 
-## Session Summary
-- **Date**: {date}
-- **Duration**: {duration}
-- **Scenario**: {scenario_type}
-- **Focus Areas**: {focus_areas}
+**[NEXT SUGGESTION]:** [What to try next or ask]
 
-## Performance Metrics
-- **Question Quality**: {quality_score}/10
-- **Technical Depth**: {tech_score}/10
-- **Candidate Experience**: {exp_score}/10
-- **Bias Awareness**: {bias_score}/10
+Be encouraging but honest about areas needing improvement.`;
 
-## Key Strengths
-1. {strength1}
-2. {strength2}
+// Simplified report prompt with actual variables
+const REPORT_PROMPT = `Generate a comprehensive interview coaching report based on this conversation log:
 
-## Areas for Improvement
-1. {improvement1}
-2. {improvement2}
+{log}
 
-## Detailed Feedback
-{feedback}
+Include:
+1. Overall performance summary
+2. Key strengths demonstrated
+3. Areas needing improvement
+4. Specific examples from the conversation
+5. Actionable recommendations
+6. Suggested next steps
 
-## Recommended Next Steps
-1. {next_step1}
-2. {next_step2}
-3. {next_step3}
-
-## Resources
-- [Structured Interview Guide](https://example.com/structured-interviewing)
-- [Technical Assessment Best Practices](https://example.com/tech-assessments)
-- [Reducing Bias in Hiring](https://example.com/reducing-bias)`;
+Format as a professional report with clear sections.`;
 
 const passingPrompt = PromptTemplate.fromTemplate(COACHING_PROMPT);
 const reportPrompt = PromptTemplate.fromTemplate(REPORT_PROMPT);
@@ -111,33 +74,62 @@ const reportPrompt = PromptTemplate.fromTemplate(REPORT_PROMPT);
 const llmChain = passingPrompt.pipe(llm).pipe(parser);
 const reportChain = reportPrompt.pipe(llm).pipe(parser);
 
-// Strip Markdown/LaTeX
+// Initialize session with welcome message
+function initializeSession(sessionId, config) {
+  if (!sessionHistories[sessionId]) {
+    const welcomeMessage = `Welcome to your interview training session! 
+
+**Scenario**: You're interviewing a ${config.scenario_type} candidate for a ${config.focus_area} position.
+**Difficulty**: ${config.level}
+**Coach Style**: ${config.coach_personality}
+
+I'll play the role of the candidate and provide coaching feedback. Start by introducing yourself and asking your first question!`;
+    
+    sessionHistories[sessionId] = [welcomeMessage];
+  }
+}
+
+// Strip Markdown/LaTeX for PDF
 function stripFormatting(text) {
   return text
     .replace(/\*\*(.*?)\*\*/g, "$1")
     .replace(/\*(.*?)\*/g, "$1")
     .replace(/^#+\s*/gm, "")
     .replace(/`+/g, "")
+    .replace(/\[[^\]]*\]:/g, "")
     .replace(/\\[a-zA-Z]+\{([^}]*)\}/g, "$1")
     .replace(/\\[a-zA-Z]+\*?/g, "")
     .trim();
 }
 
-// POST: evaluate question
+// POST: Handle conversation
 router.post("/", async (req, res) => {
-  const {
-    session_id,
-    coach_personality,
-    level,
-    focus_area,
-    scenario_type,
-    query,
-  } = req.body;
-
-  const history = sessionHistories[session_id] || [];
-  const previous_response = history.join("\n");
-
   try {
+    const {
+      session_id,
+      coach_personality = "supportive",
+      level = "intermediate",
+      focus_area = "technical skills",
+      scenario_type = "software engineer",
+      query,
+    } = req.body;
+
+    // Validate required fields
+    if (!session_id || !query) {
+      return res.status(400).json({ 
+        error: "Missing required fields: session_id and query are required" 
+      });
+    }
+
+    // Initialize session if needed
+    initializeSession(session_id, { coach_personality, level, focus_area, scenario_type });
+
+    const history = sessionHistories[session_id] || [];
+    const previous_response = history.slice(-3).join("\n"); // Only use last 3 exchanges to avoid token limits
+
+    console.log("Processing query:", query);
+    console.log("Session history length:", history.length);
+
     const response = await llmChain.invoke({
       coach_personality,
       level,
@@ -147,45 +139,115 @@ router.post("/", async (req, res) => {
       previous_response,
     });
 
-    history.push(`Q: ${query}\nA: ${response}`);
+    // Store the interaction
+    const interaction = `RECRUITER: ${query}\nCOACH: ${response}`;
+    history.push(interaction);
     sessionHistories[session_id] = history;
 
-    res.json({ response, history });
+    console.log("Generated response:", response.substring(0, 100) + "...");
+
+    res.json({ 
+      response, 
+      session_id,
+      history_length: history.length,
+      success: true 
+    });
+
   } catch (error) {
-    res.status(500).json({ error: "Failed to process question.", detail: error.message });
+    console.error("Error processing request:", error);
+    res.status(500).json({ 
+      error: "Failed to process your input", 
+      detail: error.message,
+      success: false 
+    });
   }
 });
 
-// GET: report
+// GET: Generate and download report
 router.get("/report", async (req, res) => {
-  const sessionId = req.query.session_id;
-  const history = sessionHistories[sessionId];
-
-  if (!history) {
-    return res.status(404).json({ error: "No session found with that ID." });
-  }
-
-  const logText = history.join("\n");
   try {
+    const sessionId = req.query.session_id;
+    
+    if (!sessionId) {
+      return res.status(400).json({ error: "session_id is required" });
+    }
+
+    const history = sessionHistories[sessionId];
+
+    if (!history || history.length === 0) {
+      return res.status(404).json({ error: "No session found or session is empty" });
+    }
+
+    const logText = history.join("\n\n");
+    console.log("Generating report for session:", sessionId);
+
     let report = await reportChain.invoke({ log: logText });
     report = stripFormatting(report);
 
+    // Generate PDF
     const doc = new PDFDocument();
-    const tmpPath = os.tmpdir() + `/report_${sessionId}.pdf`;
+    const tmpPath = `${os.tmpdir()}/interview_report_${sessionId}_${Date.now()}.pdf`;
     const stream = fs.createWriteStream(tmpPath);
+    
     doc.pipe(stream);
-    doc.font("Times-Roman").fontSize(12);
-    report.split("\n").forEach((line) => {
-      doc.text(line, { paragraphGap: 10 });
+    
+    // Add title
+    doc.fontSize(16).text("Interview Training Report", { align: 'center' });
+    doc.moveDown();
+    
+    // Add content
+    doc.fontSize(12);
+    const lines = report.split("\n");
+    lines.forEach((line) => {
+      if (line.trim()) {
+        doc.text(line, { paragraphGap: 5 });
+      }
     });
+    
     doc.end();
 
     stream.on("finish", () => {
-      res.download(tmpPath, `Interview_Report_${sessionId}.pdf`);
+      res.download(tmpPath, `Interview_Training_Report_${sessionId}.pdf`, (err) => {
+        if (err) {
+          console.error("Error downloading file:", err);
+        }
+        // Clean up temp file
+        fs.unlink(tmpPath, (unlinkErr) => {
+          if (unlinkErr) console.error("Error deleting temp file:", unlinkErr);
+        });
+      });
     });
+
   } catch (error) {
-    res.status(500).json({ error: "Failed to generate report.", detail: error.message });
+    console.error("Error generating report:", error);
+    res.status(500).json({ 
+      error: "Failed to generate report", 
+      detail: error.message 
+    });
   }
+});
+
+// GET: Get session history (for debugging)
+router.get("/session/:session_id", (req, res) => {
+  const sessionId = req.params.session_id;
+  const history = sessionHistories[sessionId];
+  
+  if (!history) {
+    return res.status(404).json({ error: "Session not found" });
+  }
+  
+  res.json({ 
+    session_id: sessionId, 
+    history, 
+    message_count: history.length 
+  });
+});
+
+// DELETE: Clear session (for testing)
+router.delete("/session/:session_id", (req, res) => {
+  const sessionId = req.params.session_id;
+  delete sessionHistories[sessionId];
+  res.json({ message: "Session cleared", session_id: sessionId });
 });
 
 module.exports = router;
