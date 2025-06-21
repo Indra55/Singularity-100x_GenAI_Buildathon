@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:4100/interview';
+const API_BASE_URL = 'https://singularity-100x-genai-buildathon.onrender.com/interview';
 
 export type CoachPersonality = 'mentor' | 'expert' | 'supportive' | 'challenging';
 export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
