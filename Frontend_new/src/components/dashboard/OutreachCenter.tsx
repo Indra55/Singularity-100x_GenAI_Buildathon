@@ -52,7 +52,7 @@ const OutreachCenter: React.FC<OutreachCenterProps> = ({
     setIsGenerating(true);
     try {
       const res = await axios.post<Array<{ message: string }>>(
-        "http://localhost:4100/outreach/generate-outreach",
+        "https://singularity-100x-genai-buildathon.onrender.com/outreach/generate-outreach",
         {
           userId,
           candidateIds: [candidate.id]
@@ -101,7 +101,7 @@ const OutreachCenter: React.FC<OutreachCenterProps> = ({
       console.log('Sending outreach payload:', JSON.stringify(payload, null, 2));
       
       const res = await axios.post<{ results?: Array<{ success: boolean; error?: string }>; success?: boolean; error?: string }>(
-        "http://localhost:4100/outreach/send-outreach-emails", 
+        "https://singularity-100x-genai-buildathon.onrender.com/outreach/send-outreach-emails", 
         payload
       );
       
