@@ -29,7 +29,7 @@ const Profile: React.FC = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const response = await api.get('/users/profile');
+        const response = await api.get('/users/myprofile');
         if (response.data) {
           setProfile(response.data);
         } else {
