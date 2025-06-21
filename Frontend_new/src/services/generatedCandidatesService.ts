@@ -19,7 +19,7 @@ export const storeGeneratedCandidate = async (
   sourceType: 'AI_GENERATED' | 'RESUME_PARSED' | 'MANUAL_ENTRY'
 ): Promise<GeneratedCandidate> => {
   try {
-    const response = await axios.post(`${API_URL}/generated-candidates`, {
+    const response = await axios.post(`http://10.20.12.134:5001/generated-candidates`, {
       user_id: userId,
       candidate_data: candidateData,
       source_type: sourceType,
