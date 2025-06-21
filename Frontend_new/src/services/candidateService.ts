@@ -14,8 +14,11 @@ export interface Candidate {
   summary: string;
   status: string;
   available_from: string;
-  match_score?: number;
-  matchScore?: number; // Alias for match_score for backward compatibility
+  // Score fields with fallbacks for backward compatibility
+  semantic_score?: number;
+  hybrid_score?: number;
+  match_score?: number; // Legacy field - will use semantic_score as fallback
+  matchScore?: number;  // Legacy alias for match_score
   resume_url?: string;
   avatar?: string; // For UI avatar display
   social_links?: {

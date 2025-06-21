@@ -193,7 +193,13 @@ const OutreachCenter: React.FC<OutreachCenterProps> = ({
                               </p>
                               <div className="flex items-center gap-2 mt-1">
                                 <Badge className="bg-green-100 text-green-800 text-xs">
-                                  {(candidate.match_score || candidate.matchScore || 0)}% match
+                                  {Math.round(
+                                    candidate.semantic_score || 
+                                    candidate.hybrid_score || 
+                                    candidate.match_score || 
+                                    candidate.matchScore || 
+                                    0
+                                  )}% match
                                 </Badge>
                                 <Badge variant="outline" className="text-xs">
                                   {channels.find(c => c.id === selectedChannel)?.style} tone
