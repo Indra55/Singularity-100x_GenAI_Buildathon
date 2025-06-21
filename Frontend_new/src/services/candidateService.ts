@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://10.20.12.134:5001'; // Your Node.js backend URL
+const API_BASE_URL = 'http://localhost:5001'; // Your Node.js backend URL
 const INTERACTIONS_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4100';
 
 export interface Candidate {
