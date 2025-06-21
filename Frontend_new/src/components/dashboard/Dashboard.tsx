@@ -439,6 +439,12 @@ const Dashboard: React.FC<DashboardProps> = () => {
             <AIInterviewerTraining user={user} />
           </Suspense>
         );
+      case 'analytics':
+        return (
+          <Suspense fallback={<div>Loading Analytics...</div>}>
+            <Analytics user={user} />
+          </Suspense>
+        );
       // ...
     }
   };
