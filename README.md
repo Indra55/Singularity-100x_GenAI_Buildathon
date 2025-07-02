@@ -10,7 +10,7 @@
 
 ## 🌟 Transform Your Hiring Process with AI
 
-HireAI is a revolutionary recruitment platform that leverages artificial intelligence to help you find, evaluate, and hire top talent faster and more efficiently than ever before. Say goodbye to endless resume screening and hello to intelligent candidate matching!
+HireAI is a revolutionary recruitment platform that leverages artificial intelligence to help you find, evaluate, and hire top talent faster and more efficiently than ever before. Say goodbye to endless resume screening and hello to intelligent candidate matching!!
 
 ## ✨ Next-Gen Recruitment, Powered by AI
 
